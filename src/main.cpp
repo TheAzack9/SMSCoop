@@ -1,4 +1,4 @@
-#include <Dolphin/types.h>
+﻿#include <Dolphin/types.h>
 #include <Dolphin/CARD.h>
 #include <Dolphin/math.h>
 #include <Dolphin/OS.h>
@@ -15,6 +15,8 @@
 #include <BetterSMS/loading.hxx>
 #include <BetterSMS/settings.hxx>
 #include <BetterSMS/icons.hxx>
+
+#include "characters.hxx"
 
 /*
 / Example module that logs to the console and draws to the screen during gameplay
@@ -418,24 +420,44 @@ static bool sXTravelsRight, sYTravelsDown = true;
 /*
 / Callbacks
 */
+//
+//inline void TOCstoreword(int offset, int val) {
+//	__asm("stw %0, %1(2)" :: "r" (val), "X" (offset));
+//}
+//// A temporary effect
+//// TODO: Rewrite this
+//void setFps(int fps) {
+//	short** gpApplication = (short**)0x803e9700;
+//	gpApplication[0x1c / 4][0x4c / 2] = fps;
+//    // I also had stupid issues here so I gave up.
+//	if (fps == 1) TOCstoreword(-0x3e8, 0x3f800000);
+//	else TOCstoreword(-0x3e8, 0x3f000000);
+//	//not quite sure how this part works...
+//	int gateCheck = 0x3c23d70a;
+//	if (fps == 1) gateCheck = 0x3ca3d70a;
+//	TOCstoreword(-0x229c, gateCheck);
+//
+//}
 
 static void onStageInit(TMarDirector *director) {
-    sOurTextBox = new J2DTextBox(gpSystemFont->mFont, "Hello Screen!");
-    {
-        sOurTextBox->mGradientTop    = {160, 210, 10, 255};  // RGBA
-        sOurTextBox->mGradientBottom = {240, 150, 10, 255};  // RGBA
-    }
+    
+    //setFps(1);
+    //sOurTextBox = new J2DTextBox(gpSystemFont->mFont, "Hello Screen!");
+    //{
+    //    sOurTextBox->mGradientTop    = {160, 210, 10, 255};  // RGBA
+    //    sOurTextBox->mGradientBottom = {240, 150, 10, 255};  // RGBA
+    //}
 
-    sOurTextBoxBackDrop = new J2DTextBox(gpSystemFont->mFont, "Hello Screen!");
-    {
-        sOurTextBoxBackDrop->mGradientTop    = {0, 0, 0, 255};  // RGBA
-        sOurTextBoxBackDrop->mGradientBottom = {0, 0, 0, 255};  // RGBA
-    }
+    //sOurTextBoxBackDrop = new J2DTextBox(gpSystemFont->mFont, "Hello Screen!");
+    //{
+    //    sOurTextBoxBackDrop->mGradientTop    = {0, 0, 0, 255};  // RGBA
+    //    sOurTextBoxBackDrop->mGradientBottom = {0, 0, 0, 255};  // RGBA
+    //}
 
-    sCoordX = (BetterSMS::getScreenRenderWidth() / 2) - (getTextWidth(sOurTextBox) / 2);
-    sCoordY = (480 - sOurTextBox->mCharSizeY) / 2;
+    //sCoordX = (BetterSMS::getScreenRenderWidth() / 2) - (getTextWidth(sOurTextBox) / 2);
+    //sCoordY = (480 - sOurTextBox->mCharSizeY) / 2;
 
-    OSReport("Textbox initialization successful!\n");
+    //OSReport("Textbox initialization successful!\n");
 }
 
 static void onStageUpdate(TMarDirector *director) {
@@ -465,45 +487,50 @@ static void onStageDraw2D(TMarDirector *director, const J2DOrthoGraph *ortho) {
     sOurTextBox->draw(sCoordX, sCoordY);  // Draw text to the screen
 }
 
+
 // Module definition
 
 static void initModule() {
     OSReport("Initializing Module...\n");
 
-    // Register callbacks
+    //// Register callbacks
     BetterSMS::Stage::registerInitCallback("OurModule_StageInitCallBack", onStageInit);
-    BetterSMS::Stage::registerUpdateCallback("OurModule_StageUpdateCallBack", onStageUpdate);
-    BetterSMS::Stage::registerDraw2DCallback("OurModule_StageDrawCallBack", onStageDraw2D);
+    //BetterSMS::Stage::registerUpdateCallback("OurModule_StageUpdateCallBack", onStageUpdate);
+    //BetterSMS::Stage::registerDraw2DCallback("OurModule_StageDrawCallBack", onStageDraw2D);
 
-    // Register settings
-    sXSpeedSetting.setValueRange({-10, 10, 1});
-    sYSpeedSetting.setValueRange({-10, 10, 1});
-    sSettingsGroup.addSetting(&sXSpeedSetting);
-    sSettingsGroup.addSetting(&sYSpeedSetting);
-    {
-        auto &saveInfo        = sSettingsGroup.getSaveInfo();
-        saveInfo.mSaveName    = sSettingsGroup.getName();
-        saveInfo.mBlocks      = 1;
-        saveInfo.mGameCode    = 'GMSB';
-        saveInfo.mCompany     = 0x3031;  // '01'
-        saveInfo.mBannerFmt   = CARD_BANNER_CI;
-        saveInfo.mBannerImage = GetResourceTextureHeader(sSaveBnr);
-        saveInfo.mIconFmt     = CARD_ICON_CI;
-        saveInfo.mIconSpeed   = CARD_SPEED_SLOW;
-        saveInfo.mIconCount   = 2;
-        saveInfo.mIconTable   = GetResourceTextureHeader(sSaveIcon);
-        saveInfo.mSaveGlobal  = true;
-    }
-    BetterSMS::Settings::registerGroup("Demo Module", &sSettingsGroup);
+    BetterSMS::setDebugMode(true);
+    BetterSMS::Stage::registerInitCallback("initCharacterArchives", initCharacterArchives);
+    //BetterSMS::Objects::registerObjectAsMapObj("Luigi", &generic_luigi_data, TLuigi::instantiate);
+    //// Register settings
+    //sXSpeedSetting.setValueRange({-10, 10, 1});
+    //sYSpeedSetting.setValueRange({-10, 10, 1});
+    //sSettingsGroup.addSetting(&sXSpeedSetting);
+    //sSettingsGroup.addSetting(&sYSpeedSetting);
+    //{
+    //    auto &saveInfo        = sSettingsGroup.getSaveInfo();
+    //    saveInfo.mSaveName    = sSettingsGroup.getName();
+    //    saveInfo.mBlocks      = 1;
+    //    saveInfo.mGameCode    = 'GMSB';
+    //    saveInfo.mCompany     = 0x3031;  // '01'
+    //    saveInfo.mBannerFmt   = CARD_BANNER_CI;
+    //    saveInfo.mBannerImage = GetResourceTextureHeader(sSaveBnr);
+    //    saveInfo.mIconFmt     = CARD_ICON_CI;
+    //    saveInfo.mIconSpeed   = CARD_SPEED_SLOW;
+    //    saveInfo.mIconCount   = 2;
+    //    saveInfo.mIconTable   = GetResourceTextureHeader(sSaveIcon);
+    //    saveInfo.mSaveGlobal  = true;
+    //}
+    //BetterSMS::Settings::registerGroup("Demo Module", &sSettingsGroup);
 }
 
 static void deinitModule() {
     OSReport("Deinitializing Module...\n");
 
-    // Cleanup callbacks
-    BetterSMS::Stage::deregisterInitCallback("OurModule_StageInitCallBack");
-    BetterSMS::Stage::deregisterUpdateCallback("OurModule_StageUpdateCallBack");
-    BetterSMS::Stage::deregisterDraw2DCallback("OurModule_StageDrawCallBack");
+    //// Cleanup callbacks
+    //BetterSMS::Stage::deregisterInitCallback("OurModule_StageInitCallBack");
+    BetterSMS::Stage::deregisterInitCallback("initCharacterArchives");
+    //BetterSMS::Stage::deregisterUpdateCallback("OurModule_StageUpdateCallBack");
+    //BetterSMS::Stage::deregisterDraw2DCallback("OurModule_StageDrawCallBack");
 }
 
 // Definition block
