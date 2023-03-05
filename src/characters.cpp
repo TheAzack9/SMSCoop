@@ -1,3 +1,9 @@
+/// <summary>
+/// Overrides logic for loading a player model. Also moves common logic to the common.szs archive to reduce memory size of modules.
+/// This allows us to load different skins for each player.
+/// Thanks to JoshuaMK for writing and helping with this.
+/// </summary>
+
 #include <Dolphin/types.h>
 #include <Dolphin/printf.h>
 #include <Dolphin/DVD.h>
@@ -19,22 +25,29 @@
 
 static TGlobalVector<void *> sCharacterArcs;
 void* arcBufMario;
-//
-//SMS_WRITE_32(SMS_PORT_REGION(0x802A6C4C, 0, 0, 0), 0x60000000);  // Prevent early archive init
-//SMS_WRITE_32(SMS_PORT_REGION(0x802A7148, 0, 0, 0), 0x48000058);
-//SMS_WRITE_32(SMS_PORT_REGION(0x802A71A8, 0, 0, 0), 0x60000000);
+
+void setActiveMarioArchive(int id) {
+    JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
+    archive->unmountFixed();
+    arcBufMario = sCharacterArcs.at(id);
+    archive->mountFixed(arcBufMario, UNK_0);
+}
+
+SMS_WRITE_32(SMS_PORT_REGION(0x802A6C4C, 0, 0, 0), 0x60000000);  // Prevent early archive init
+SMS_WRITE_32(SMS_PORT_REGION(0x802A7148, 0, 0, 0), 0x48000058);
+SMS_WRITE_32(SMS_PORT_REGION(0x802A71A8, 0, 0, 0), 0x60000000);
 
 void initCharacterArchives(TMarDirector *director) {
     sCharacterArcs.clear();
     sCharacterArcs.reserve(2);
 
-    //for (int i = 0; i < 1; ++i) {
-    //    char buffer[32];
-    //    //snprintf(buffer, 32, "/data/mario.szs", SME::TGlobals::sCharacterIDList[i]);
-
-    //}
-    sCharacterArcs.push_back(SMSLoadArchive("/data/mario.arc", nullptr, 0, nullptr));
-    sCharacterArcs.push_back(SMSLoadArchive("/data/luigi.arc", nullptr, 0, nullptr));
+    // TODO: Make number of skins configurable
+    for (unsigned char i = 0; i < 2; ++i) {
+        char buffer[32];
+        snprintf(buffer, 32, "/data/chr%hhu.arc", i);
+        OSReport("Loading buffer %s with id %hhu\n", buffer, i);
+        sCharacterArcs.push_back(SMSLoadArchive(buffer, nullptr, 0, nullptr));
+    }
 
     arcBufMario = sCharacterArcs.at(0);
 
@@ -42,34 +55,25 @@ void initCharacterArchives(TMarDirector *director) {
     if (!archive)
         archive = new JKRMemArchive(arcBufMario, 0, UNK_0);
 
-    //archive->mountFixed(arcBufMario, UNK_0);
 }
-
-
-void initCharacterBuffer(TMario *player, JSUMemoryInputStream *input) {
-    load__Q26JDrama6TActorFR20JSUMemoryInputStream(player, input);
-    u8 player_index        = 0;
-
-    JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
-    archive->unmountFixed();
-    arcBufMario = sCharacterArcs.at(0);
-    archive->mountFixed(arcBufMario, UNK_0);
-}
-SMS_PATCH_BL(SMS_PORT_REGION(0x80276BF0, 0, 0, 0), initCharacterBuffer);
 
 static void getGlobalOrLocalResFmt(char *dst, size_t size, const char *local_path,
                                 const char *specifier, const char *global_path) {
-    if (!JKRFileLoader::findFirstFile("/common/mario/01_waterboost")) {
+    auto* first_file = JKRFileLoader::findFirstFile("/common/mario/01_waterboost");
+    if (!first_file) {
         snprintf(dst, size, local_path, specifier);
         return;
     }
+    delete first_file;
     snprintf(dst, size, global_path, specifier);
 }
 
 static void *getGlobalOrLocalRes(const char *local_path, const char *global_path) {
-    if (!JKRFileLoader::findFirstFile("/common/mario/01_waterboost")) {
+    auto* first_file = JKRFileLoader::findFirstFile("/common/mario/01_waterboost");
+    if (!first_file) {
         return JKRFileLoader::getGlbResource(local_path);
     }
+    delete first_file;
     return JKRFileLoader::getGlbResource(global_path);
 }
 
