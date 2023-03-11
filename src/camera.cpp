@@ -28,8 +28,8 @@ void setCamera(int i) {
 	*gpCameraCoop = cameras[i];
 	// This is mario position lmao... 0x80025690
 	// This might not be necessary
-	/**gpCameraMario = (CPolarSubCamera*)c1[i];
-	*gpCameraShake = (CPolarSubCamera*)c2[i];*/
+	//*gpCameraMario = (CPolarSubCamera*)c1[i];
+	//*gpCameraShake = (CPolarSubCamera*)c2[i];
 }
 
 inline void SDAstoreword(int offset, u32 val) {
@@ -95,7 +95,9 @@ void performCamerasOverhaul(CPolarSubCamera* camera, u32 param_1, JDrama::TGraph
 	setCamera(i);
 	((u32*)pCamera)[0x120 / 4] = controllers[i];
 	perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
-	setCamera(0);
+	// I saw i missed this in the first beta version and it is what fixed reflection. TODO: Research proper way to fix reflection
+	// Atm removing this breaks demo start, so in the future it probably works once more shit is migrated, but removing this is technically a bug 
+	setCamera(0); 
 	setActiveMario(0);
 } 
 
@@ -167,8 +169,9 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x8023d3c4, 0, 0, 0), getCamera);
 
 // Description: When demo starts/ends, start/end for all cameras.
 // TODO: Make it based on individual controllers input press
-void CPolarSubCamera_StartDemoCamera_Override(CPolarSubCamera* camera, char* filename, TVec3f* position, s32 param_3, f32 param_4, bool param_5) {
+void CPolarSubCamera_StartDemoCamera_Override(CPolarSubCamera* p1Camera, char* filename, TVec3f* position, s32 param_3, f32 param_4, bool param_5) {
 	for (int i = 0; i < getPlayerCount(); i++) {
+		CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
 		camera->startDemoCamera(filename, position, param_3, param_4, param_5);
 	}
 }
@@ -178,9 +181,44 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x8029839c, 0, 0, 0), CPolarSubCamera_StartDemoCame
 
 void CPolarSubCamera_EndDemoCamera_Override(CPolarSubCamera* camera) {
 	for (int i = 0; i < getPlayerCount(); i++) {
+		CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
 		camera->endDemoCamera();
 	}
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x80297f34, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
 SMS_PATCH_BL(SMS_PORT_REGION(0x80297fd4, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
 SMS_PATCH_BL(SMS_PORT_REGION(0x80298cac, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
+
+// Description: Sets up each camera as it's own sound listener. 
+void MSoundSESystem_MSoundSE_checkSoundArea(JAIBasic* jaiBasic, TVec3f* param_1, TVec3f* param_2, float* param_3, u32 sourceIdx) {
+	for (int i = 0; i < getPlayerCount(); i++) {
+		CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
+		setCameraInfo__8JAIBasicFP3VecP3VecPA4_fUl(jaiBasic, camera + 0x124, camera + 0x13c, camera->mMatrixTRS, i);
+	}
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x800153b8, 0, 0, 0), MSoundSESystem_MSoundSE_checkSoundArea);
+SMS_WRITE_32(SMS_PORT_REGION(0x8040cd70, 0, 0, 0), 0x2); // Number of audio sources
+
+// Description: Goes through all audio listener and finds the closest one to the audio source
+void calculateSoundDistance(const Mtx matrix, const Vec *source, Vec *dest) {
+	Vec distance = *dest;
+	f32 fdist = 0.0;
+
+	PSMTXMultVec(matrix, source, &distance);
+	fdist = PSVECMag(&distance);
+
+	for(int i = 1; i < getPlayerCount(); ++i) {
+		Vec newDist;
+		CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
+		PSMTXMultVec(camera->mMatrixTRS, source, &newDist);
+		f32 newMag = PSVECMag(&newDist);
+		if(fdist > newMag) {
+			fdist = newMag;
+			distance = newDist;
+		}
+	}
+
+	*dest = distance;
+
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80305418, 0, 0, 0), calculateSoundDistance);
