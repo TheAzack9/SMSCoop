@@ -164,3 +164,23 @@ CPolarSubCamera* getCamera() {
 	return cameras[getActivePerspective()];
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x8023d3c4, 0, 0, 0), getCamera);
+
+// Description: When demo starts/ends, start/end for all cameras.
+// TODO: Make it based on individual controllers input press
+void CPolarSubCamera_StartDemoCamera_Override(CPolarSubCamera* camera, char* filename, TVec3f* position, s32 param_3, f32 param_4, bool param_5) {
+	for (int i = 0; i < getPlayerCount(); i++) {
+		camera->startDemoCamera(filename, position, param_3, param_4, param_5);
+	}
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80297f7c, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
+SMS_PATCH_BL(SMS_PORT_REGION(0x802981a8, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8029839c, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
+
+void CPolarSubCamera_EndDemoCamera_Override(CPolarSubCamera* camera) {
+	for (int i = 0; i < getPlayerCount(); i++) {
+		camera->endDemoCamera();
+	}
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80297f34, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
+SMS_PATCH_BL(SMS_PORT_REGION(0x80297fd4, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
+SMS_PATCH_BL(SMS_PORT_REGION(0x80298cac, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
