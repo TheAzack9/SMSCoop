@@ -11,6 +11,7 @@
 
 #include "characters.hxx"
 #include "camera.hxx"
+#include "splitscreen.hxx"
 
 static u8 loadedMarios = 0;
 static TMario* marios[2];
@@ -86,6 +87,10 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x80223548, 0, 0, 0), JDrama_TViewObjPtrListT_load)
 u32 JDrama_TNameRefGen_load_Mario(JDrama::TNameRef* refGen, JSUMemoryInputStream* memoryStream, JSUMemoryInputStream* memoryStream2) {
 	u32 response = genObject__Q26JDrama8TNameRefFR20JSUMemoryInputStreamR20JSUMemoryInputStream(refGen, memoryStream, memoryStream2);
 	if(isMarioCurrentlyLoadingViewObj) {
+		if(!isSplitscreen()) {
+			isMarioCurrentlyLoadingViewObj = false;
+			return response;
+		}
 		// Read the map data for mario and store it in a temp buffer to be able to reuse memoryStream.
 		// We cannot set the position since this is the direct io stream, so we need to temp store it.
 		char* buffer[73];

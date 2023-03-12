@@ -12,7 +12,7 @@
 
 static bool IS_SPLITSCREEN_ENABLED = true;
 static int ACTIVE_PERSPECTIVE = 0;
-static bool IS_VERTICAL_SPLIT = true;
+static bool IS_VERTICAL_SPLIT = false;
 
 // TODO: Get rid of hard pointers, i think these are in MarDirector
 static u8* MapEpisodePost = (u8*)0x803e970f;
@@ -23,26 +23,26 @@ static u8* MapArea = (u8*)0x803e970e;
 
 // Description: Checks whether to enable split screen or not
 // TODO: Cleanup, probably don't need to check all of this
-static bool isSplitscreen() {
+bool isSplitscreen() {
     TApplication *app      = &gpApplication;
     TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
-    if (app == nullptr || app->mContext != TApplication::CONTEXT_DIRECT_STAGE || gpMarioAddress == nullptr) {
+    if (app == nullptr || app->mContext != TApplication::CONTEXT_DIRECT_STAGE ) {
         ACTIVE_PERSPECTIVE = 0;
         return false;
     }
 
-    if (director == nullptr || director->mCurState == TMarDirector::STATE_INTRO_INIT) {
+    if (director == nullptr || director->mCurState == TMarDirector::STATE_GAME_STARTING) {
         ACTIVE_PERSPECTIVE = 0;
         return false;
     }
-    
 
 	if(*ThpState == 2 && *isThpInit == 0) {
         ACTIVE_PERSPECTIVE = 0;
 		return false;
 	}
 
+    // intro / option level
     if (director->mAreaID == 15) {
         ACTIVE_PERSPECTIVE = 0;
         return false;
@@ -133,7 +133,7 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x802f92cc, 0, 0, 0), processGXSetDispCopySrc);
 
 // TODO: Fix widescreen bug here
 static unsigned int SMSGetGameRenderWidth() { 
-	if(IS_VERTICAL_SPLIT) {
+	if(isSplitscreen() && IS_VERTICAL_SPLIT) {
 		return 320;
 	}
 	return 640;
@@ -157,7 +157,7 @@ SMS_PATCH_B(SMS_PORT_REGION(0x802a8ca8, 0, 0, 0), SMSGetGameVideoWidth);
 
 
 static unsigned int SMSGetGameRenderHeight() {
-	if(!IS_VERTICAL_SPLIT) {
+	if(isSplitscreen() && !IS_VERTICAL_SPLIT) {
 		return 224;
 	}
 	return 448;
