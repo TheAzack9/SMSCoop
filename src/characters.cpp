@@ -27,6 +27,7 @@ static TGlobalVector<void *> sCharacterArcs;
 void* arcBufMario;
 
 void setActiveMarioArchive(int id) {
+    if(id > sCharacterArcs.size()) return;
     JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
     archive->unmountFixed();
     arcBufMario = sCharacterArcs.at(id);

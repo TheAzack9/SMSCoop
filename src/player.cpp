@@ -4,6 +4,7 @@
 #include <SMS/System/Application.hxx>
 #include <SMS/Manager/ModelWaterManager.hxx>
 #include <JSystem/JDrama/JDRGraphics.hxx>
+#include <JSystem/JDrama/JDRViewObjPtrListT.hxx>
 
 #include <BetterSMS/player.hxx>
 #include <BetterSMS/stage.hxx>
@@ -13,6 +14,8 @@
 
 static u8 loadedMarios = 0;
 static TMario* marios[2];
+
+#define DYNAMIC_MARIO_LOADING true
 
 int getPlayerCount() {
 	return loadedMarios;
@@ -51,17 +54,63 @@ u8 getPlayerId(TMario* mario) {
 	}
 	return 0;
 }
-
+bool isMarioCurrentlyLoadingViewObj = false;
 // Description: Overrides mario loading to allow for loading a luigi game object in level
 // TODO: Make this optional based on setting
 int TMarioStrCmp_Override(const char* nameRef, void* str) {
+	int isMarioCheck = strcmp(nameRef, "Mario");
+#ifdef DYNAMIC_MARIO_LOADING
+	if(isMarioCheck == 0) {
+		isMarioCurrentlyLoadingViewObj = true;
+	}
+#else
     if(strcmp(nameRef, "Luigi") == 0) {
         return 0;
     }
-
-    return  strcmp(nameRef, "Mario");
+#endif
+    return isMarioCheck;
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x8029d7d8, 0, 0, 0), TMarioStrCmp_Override);
+
+#ifdef DYNAMIC_MARIO_LOADING
+// Description: We hook into the load to get a pointer to TViewObjPtrListT to be able to add viewObjs manually
+JDrama::TViewObjPtrListT<THitActor,JDrama::TViewObj>* mario_viewObjPtrList = 0;
+void JDrama_TViewObjPtrListT_load(JDrama::TViewObjPtrListT<THitActor,JDrama::TViewObj>* viewObjPtrList,JSUMemoryInputStream *param_1) {
+	mario_viewObjPtrList = viewObjPtrList;
+	load__Q26JDrama47TViewObjPtrListT_9(viewObjPtrList, param_1);
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80223548, 0, 0, 0), JDrama_TViewObjPtrListT_load);
+
+// Description: The loading of the mario nameRef section.
+// Optimization: See if we can re-use the instance created in genObject instead of deleting.
+u32 JDrama_TNameRefGen_load_Mario(JDrama::TNameRef* refGen, JSUMemoryInputStream* memoryStream, JSUMemoryInputStream* memoryStream2) {
+	u32 response = genObject__Q26JDrama8TNameRefFR20JSUMemoryInputStreamR20JSUMemoryInputStream(refGen, memoryStream, memoryStream2);
+	if(isMarioCurrentlyLoadingViewObj) {
+		// Read the map data for mario and store it in a temp buffer to be able to reuse memoryStream.
+		// We cannot set the position since this is the direct io stream, so we need to temp store it.
+		char* buffer[73];
+		memoryStream->readData(buffer, 73);
+
+		// Create marios and load them
+		for(int i = 0; i < 2; ++i) {
+			memoryStream->setBuffer(buffer, 73);
+			TMario* mario = new TMario();
+			mario->load(*memoryStream);
+			mario_viewObjPtrList->mViewObjList.push_back(mario);
+		}
+
+
+		// We cleanup the unused mario that is just used as a locator
+		TMario* mario = (TMario*)response;
+		delete mario;
+		
+		isMarioCurrentlyLoadingViewObj = false;
+		return 0x0;
+	}
+	return response;
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x802a0734, 0, 0, 0), JDrama_TNameRefGen_load_Mario);
+#endif
 
 // Description: Override the controller update to ensure that correct mario is checked.
 // Note: Certain things like the y-cam is for some reason tied directly to the controller update.
@@ -117,12 +166,13 @@ void loadMario(TMario* mario, JSUMemoryInputStream *input) {
     load__Q26JDrama6TActorFR20JSUMemoryInputStream(mario, input);
 	
     marios[loadedMarios] = mario;
-
+	
     if(loadedMarios == 1) {
         TApplication* app = &gpApplication;
 		app->mGamePads[1]->_E0 = 2;
         mario->setGamePad(app->mGamePads[1]);
 		mario->mController = app->mGamePads[1];
+		
     }
 
     setActiveMarioArchive(loadedMarios);
@@ -146,6 +196,15 @@ void SetMario(TMarDirector* director) {
 	for (int i = loadedMarios-1; i >= 0; i--) {
 		setActiveMario(i);
 		director->setMario();
+		
+#ifdef DYNAMIC_MARIO_LOADING
+		f32 offset = -75.0f + 150.0f * i;
+		volatile float angle = 2.0f * 3.1415 * marios[i]->mAngle.y / 65535.0f - 3.1415/2.0;
+		f32 offsetX = sin(angle) * offset;
+		f32 offsetZ = cos(angle) * offset;
+		marios[i]->mTranslation.x += offsetX;
+		marios[i]->mTranslation.z += offsetZ;
+#endif
 	}
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x802983f8, 0, 0, 0), SetMario);

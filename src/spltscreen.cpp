@@ -8,6 +8,8 @@
 #include <sdk.h>
 #include <BetterSMS/stage.hxx>
 
+#include "player.hxx"
+
 static bool IS_SPLITSCREEN_ENABLED = true;
 static int ACTIVE_PERSPECTIVE = 0;
 static bool IS_VERTICAL_SPLIT = true;
@@ -78,7 +80,7 @@ int shouldFlip() {
 
 // Description: Get's the player id of current perspectve
 int getActivePerspective() {
-    if(ACTIVE_PERSPECTIVE && isSplitscreen()) return 1;
+    if(ACTIVE_PERSPECTIVE && isSplitscreen() && getPlayerCount() > 1) return 1;
     return 0;
 }
 
