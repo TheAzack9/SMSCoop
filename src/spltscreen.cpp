@@ -131,10 +131,9 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x802f92cc, 0, 0, 0), processGXSetDispCopySrc);
 
 // TODO: Fix widescreen bug here
 static unsigned int SMSGetGameRenderWidth() { 
-	if(isSplitscreen() && IS_VERTICAL_SPLIT) {
+	if(IS_VERTICAL_SPLIT) {
 		return 320;
 	}
-		return 320;
 	return 640;
 }
 SMS_PATCH_B(SMS_PORT_REGION(0x802a8bd0, 0, 0, 0), SMSGetGameRenderWidth);
@@ -156,18 +155,19 @@ SMS_PATCH_B(SMS_PORT_REGION(0x802a8ca8, 0, 0, 0), SMSGetGameVideoWidth);
 
 
 static unsigned int SMSGetGameRenderHeight() {
-	if(isSplitscreen() && !IS_VERTICAL_SPLIT) {
+	if(!IS_VERTICAL_SPLIT) {
 		return 224;
 	}
 	return 448;
 }
-SMS_PATCH_BL(SMS_PORT_REGION(0x8022d4a4, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x801aaee4, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x801ac978, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x801ac948, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x8011010c, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x8011012c, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x80110178, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x801101dc, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x8011055c, 0, 0, 0), SMSGetGameRenderHeight);
-SMS_PATCH_BL(SMS_PORT_REGION(0x80110598, 0, 0, 0), SMSGetGameRenderHeight);
+SMS_PATCH_B(SMS_PORT_REGION(0x802a8bc8, 0, 0, 0), SMSGetGameRenderHeight);
+
+static unsigned int SMSGetGameRenderHeight2() {
+	return 448;
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x802a50c8, 0, 0, 0), SMSGetGameRenderHeight2);
+SMS_PATCH_BL(SMS_PORT_REGION(0x802a4f70, 0, 0, 0), SMSGetGameRenderHeight2);
+SMS_PATCH_BL(SMS_PORT_REGION(0x802b6e08, 0, 0, 0), SMSGetGameRenderHeight2);
+SMS_PATCH_BL(SMS_PORT_REGION(0x802a65fc, 0, 0, 0), SMSGetGameRenderHeight2);
+SMS_PATCH_BL(SMS_PORT_REGION(0x802a6520, 0, 0, 0), SMSGetGameRenderHeight2);
+SMS_PATCH_BL(SMS_PORT_REGION(0x802a64b8, 0, 0, 0), SMSGetGameRenderHeight2);
