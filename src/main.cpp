@@ -25,7 +25,6 @@ static void initModule() {
     BetterSMS::setDebugMode(true);
     BetterSMS::Stage::registerInitCallback("setupPlayersCoop", setupPlayers);
     BetterSMS::Stage::registerInitCallback("initCharacterArchivesCoop", initCharacterArchives);
-    BetterSMS::Player::registerUpdateCallback("updatePlayerCoop", updatePlayerCoop);
 }
 
 static void deinitModule() {
@@ -34,7 +33,6 @@ static void deinitModule() {
     //// Cleanup callbacks
     BetterSMS::Stage::deregisterInitCallback("setupPlayersCoop");
     BetterSMS::Stage::deregisterInitCallback("initCharacterArchivesCoop");
-    BetterSMS::Player::deregisterUpdateCallback("updatePlayerCoop");
 }
 
 // Definition block

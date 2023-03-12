@@ -7,6 +7,7 @@
 
 #include <SMS/Player/Mario.hxx>
 #include <SMS/Camera/PolarSubCamera.hxx>
+#include <SMS/System/Application.hxx>
 #include <SMS/raw_fn.hxx>
 #include <memory.hxx>
 #include <sdk.h>
@@ -79,13 +80,13 @@ void loadCameraInfo(u32* camera, u32* unk, u32* bleh1, u32* bleh2, u32** gadgetN
 // TODO: Cleanup
 void performCamerasOverhaul(CPolarSubCamera* camera, u32 param_1, JDrama::TGraphics* graphics) {
 	
-	u32* controllers = (u32*)0x803e9720;
+    TApplication* app = &gpApplication;
 	for (int i = getPlayerCount()-1; i >= 0; i--) {
 		if(i == getActivePerspective()) continue;
 		CPolarSubCamera* pCamera = cameras[i];
 		setActiveMario(i);
 		setCamera(i);
-		((u32*)pCamera)[0x120 / 4] = controllers[i];
+		((u32*)pCamera)[0x120 / 4] = (u32)app->mGamePads[i];
 		perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
 	}
 	
@@ -93,11 +94,10 @@ void performCamerasOverhaul(CPolarSubCamera* camera, u32 param_1, JDrama::TGraph
 	CPolarSubCamera* pCamera = cameras[i];
 	setActiveMario(i);
 	setCamera(i);
-	((u32*)pCamera)[0x120 / 4] = controllers[i];
+	((u32*)pCamera)[0x120 / 4] = (u32)app->mGamePads[i];
 	perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
 	// I saw i missed this in the first beta version and it is what fixed reflection. TODO: Research proper way to fix reflection
-	// Atm removing this breaks demo start, so in the future it probably works once more shit is migrated, but removing this is technically a bug 
-	setCamera(0); 
+	//setCamera(0); 
 	setActiveMario(0);
 } 
 
