@@ -92,19 +92,27 @@ void TMario_perform_coop(TMario* mario, u32 param_1, JDrama::TGraphics* param_2)
 	setActiveMario(0);
 	setCamera(0);
 }
+// Override vtable
+SMS_WRITE_32(SMS_PORT_REGION(0x803dd680, 0, 0, 0), (u32)(&TMario_perform_coop));
+
+// Description: set correct camera and player before player update to make player move after correct camera
+#define playerControl__6TMarioFPQ26JDrama9TGraphics         ((int (*)(...))0x8024DE38)
+void TMario_playerControl(TMario* mario, JDrama::TGraphics* graphics) {
+	u8 playerId = getPlayerId(mario);
+	setActiveMario(playerId);
+	setCamera(playerId);
+	playerControl__6TMarioFPQ26JDrama9TGraphics(mario, graphics);
+	setActiveMario(0);
+	setCamera(0);
+}
+// Override vtable
+SMS_WRITE_32(SMS_PORT_REGION(0x803dd72c, 0, 0, 0), (u32)(&TMario_playerControl));
 
 
 static TMarioGamePad* GamePads = (TMarioGamePad*)0x8057738c;
 
-// VTable for TMario
-static u32* marioVTable = (u32*)0x803dd660;
-
 // Description: Override load method for mario to set correct gamepad for p2 and load correct model
 void loadMario(TMario* mario, JSUMemoryInputStream *input) {
-	// Override vtable to get full controll over before and after update of player
-	// TODO: This should be possible in plain better SMS with register callbacks, 
-	// but since you can only register a callback before the update is it not currently possible to clean up state.
-	marioVTable[8] = (u32)(&TMario_perform_coop);
 
     load__Q26JDrama6TActorFR20JSUMemoryInputStream(mario, input);
 	
@@ -301,3 +309,40 @@ void OnMarioThrow(THitActor* thrownObject, TMario* mario, u32 message) {
 	setActiveMario(0);
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x802437d0, 0, 0, 0), OnMarioThrow);
+
+// Description: Overrides a hard coded check for distance to global mario and checks for all players instead
+// This fixes collision with e.g shines and allows luigi to collide with them
+int CheckDistance_Override(double param_1, double param_2, double param_3, double param_4, TVec3f* positionObj, TVec3f* positionPlayer) {
+	int result = 0;
+	for (int i = 0; i < getPlayerCount(); i++){
+		TMario* mario = getMarioById(i);
+
+		result = checkDistance__FRCQ29JGeometry8TVec3_f(param_1, param_2, param_3, param_4, positionObj, &mario->mTranslation);
+		if(result) {
+			return result;
+		}
+	}
+
+	return result;
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x8021bbe0, 0, 0, 0), CheckDistance_Override);
+
+
+void TMarDirector_movement_game_override(TMarDirector* marDirector) {
+	int marioId = getActivePerspective();
+
+	if(loadedMarios > 1) {
+		setCamera(marioId);
+		setActiveMario(marioId);
+		//personToCheckTalk = marioId;
+		movement_game__12TMarDirectorFv(marDirector);
+		setCamera(0);
+		setActiveMario(0);
+	} else {
+		//personToCheckTalk = 0;
+		movement_game__12TMarDirectorFv(marDirector);
+
+	}
+}
+
+SMS_PATCH_BL(SMS_PORT_REGION(0x8029a4c8, 0, 0, 0), TMarDirector_movement_game_override);
