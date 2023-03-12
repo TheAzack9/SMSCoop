@@ -19,6 +19,23 @@ int getPlayerCount() {
 }
 
 
+TMario* getMarioById(int id) {
+	return marios[id];
+}
+
+int getClosestMarioId(TVec3f* position) {
+	int closestId = 0;
+	float closest = 99999.0f;
+	for(int i = 0; i < loadedMarios; ++i) {
+		float dist = PSVECDistance((Vec*)position, (Vec*)&marios[i]->mTranslation);
+		if(closest > dist ) {
+			closestId = i;
+			closest = dist;
+		}
+	}
+	return closestId;
+}
+
 // Description: Sets the global instance of mario and all access parameters
 // Note: Cannot be set every other frame because game logic depends on one static global instance so swapping breaks the game.
 // A lot of how mario works is connected to the global mario and must be manually changed to work with multiple players
@@ -136,8 +153,151 @@ void TModelWaterManager_perform_move(TModelWaterManager* waterManager) {
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x8027bedc, 0, 0, 0), TModelWaterManager_perform_move);
 
-// Fix for luigi shadow
-// Basically there is a check whether shadow has been rendered
-// This removes that check
+// Description: Fix for luigi shadow. Basically there is a check whether shadow has been rendered This removes that check
 // Optimization: Check for shadow individually between players
 SMS_WRITE_32(SMS_PORT_REGION(0x80231834, 0, 0, 0), 0x60000000);
+
+// Description: Removes hit actor from another hit actor's collision array
+void RemoveObjectFromColArray(THitActor* actor, THitActor* col){
+	// If no collisions do nothing
+	if (actor->mNumObjs == 0)
+		return;
+
+	// Find index of held mario actor
+	int colActorIndex = -1;
+	for(int i = 0; i < actor->mNumObjs; ++i) {
+		if(actor->mCollidingObjs[i] == col) {
+			colActorIndex = i;
+			break;
+		}
+	}
+
+	// Not found
+	if (colActorIndex == -1){
+		return;
+	}
+
+	// Move all other collisions one index up
+	actor->mNumObjs--;
+	for(int i = colActorIndex; i < actor->mNumObjs; ++i)
+		actor->mCollidingObjs[i] = actor->mCollidingObjs[i+1];
+}
+
+// Description: Bounces TMario off another TMario
+#define changePlayerStatus__6TMarioFUlUlb                          ((int (*)(...))0x80254034)
+void BounceMario(TMario* mario1, TMario* mario2){
+	int rstatus = mario1->mState;
+	bool isDiving = rstatus == TMario::State::STATE_DIVE;
+	bool isSpinjump = rstatus & TMario::State::STATE_JUMPSPIN;
+	if (rstatus != TMario::State::STATE_JUMPSPIN && rstatus != TMario::State::STATE_JUMP && rstatus != TMario::State::STATE_JUMPSIDE && !isDiving && rstatus != TMario::State::STATE_NPC_BOUNCE)
+	{
+		if (rstatus == 0x00800230 || rstatus == 0x008008A0){
+			//knock over other mario
+			if ((mario2->mState & 0xFFFFFFF0) != 0x000024D0)
+				changePlayerStatus__6TMarioFUlUlb(mario2, 0x000208b0, 0, 0);
+		}
+		return;
+	}
+
+	TVec3f temp;
+	temp.x = 0.5f;
+	temp.y = 0.5f;
+	temp.z = 0.5f;
+
+	if(isDiving) {
+		mario1->mSpeed.y = 50.0f;
+	}
+	else {
+		mario1->mSpeed.y = 300.0f;
+		mario1->setAnimation(211, 1.0f);
+		changePlayerStatus__6TMarioFUlUlb(mario1, 0x02000890, 0, 0);
+		mario1->setStatusToJumping(0x02000890, 0);
+	}
+
+	SMS_EasyEmitParticle_2(8, &(mario1->mTranslation), (THitActor*)mario1, &temp);
+	SMS_EasyEmitParticle_2(9, &(mario1->mTranslation), (THitActor*)mario1, &temp);
+	startSoundActorWithInfo__Q214MSoundSESystem8MSoundSEFUlPC3VecP3VecfUlUlPP8JAISoundUlUc(6168, &(mario1->mTranslation), 0, 0.0f, 3, 0, 0, 0, 4);
+
+	// Footstool
+	rstatus = mario2->mState & 0xFFFFFFF0;
+	if (rstatus == TMario::State::STATE_JUMPSPIN || rstatus == TMario::State::STATE_JUMP || rstatus == TMario::State::STATE_JUMPSIDE)
+	{
+		mario2->mSpeed.y = -mario2->mSpeed.y;
+	}
+
+}
+
+#define GetType( object ) *(int*)object
+const float MARIO_TRAMPLEHEIGHT = 60.0f;
+
+// Description: Collision check run for TMario
+void OnCheckActorsHit(void* hitcheckobj){
+	// Run replaced branch
+	checkActorsHit__12TObjHitCheckFv(hitcheckobj);
+
+	for (int i = 0; i < loadedMarios; i++){
+		// Check if mario should be bounced
+		if (marios[i]->mSpeed.y < 0.0f) {
+			for (int j = 0; j < marios[i]->mNumObjs; j++){
+				if (GetType(marios[i]->mCollidingObjs[j]) == 0x803dd660){
+					if (marios[i]->mTranslation.y - MARIO_TRAMPLEHEIGHT > ((TMario*)marios[i]->mCollidingObjs[j])->mTranslation.y){
+						BounceMario(marios[i], (TMario*)(marios[i]->mCollidingObjs[j]));
+					}
+				}
+			}
+		}
+
+		//Remove held item from player collision
+		if (marios[i]->mHeldObject != 0)
+			RemoveObjectFromColArray((THitActor*)marios[i], marios[i]->mHeldObject);
+
+	}
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80299af8, 0, 0, 0), OnCheckActorsHit);
+
+// Description: Replaces player throw function to override how TMarios are thrown
+// Throw strength is based on a combination of airborn and how far the stick is pressed. 
+// TODO: Research if this could be set as a player parameter instead of manually coded.
+void OnMarioThrow(THitActor* thrownObject, TMario* mario, u32 message) {
+	u8 playerId = getPlayerId(mario);
+	setActiveMario(playerId);
+
+	float speed = mario->mControllerWork->mStickDist;
+	if(speed > 0.5f || mario->mState & TMario::State::STATE_AIRBORN) {
+		thrownObject->receiveMessage(mario, 7);
+	} else {
+		thrownObject->receiveMessage(mario, 8);
+	}
+
+	// Optimization: Could probably check if the held item is a TMario instead of interating through all players to find player
+	for (int i = 0; i < loadedMarios; i++){
+		TMario* thrownMario = marios[i];
+		if (thrownObject == (THitActor*)thrownMario){
+			TVec3f newPos = mario->mTranslation;
+			const f32 PI = 3.1415;
+			volatile float angle = 2.0f * PI * mario->mAngle.y / 65535.0f;
+			newPos.x += sinf(angle) * 120.0f;
+			newPos.z += cosf(angle) * 120.0f;
+
+			thrownMario->mTranslation = newPos;
+			thrownMario->mState = TMario::State::STATE_DIVE;
+			thrownMario->mAngle.y = mario->mAngle.y;
+
+
+			if(mario->mState & TMario::State::STATE_AIRBORN) {
+				thrownMario->setPlayerVelocity(25.0f + speed/1.75f);
+				thrownMario->mSpeed.y = 25.0f + speed/1.75f;
+			} else if(speed > 0.5f) {
+				thrownMario->setPlayerVelocity(10.0f + speed/3.0f);
+				thrownMario->mSpeed.y = 15.0f + speed/3.0f;
+			} else {
+				thrownMario->setPlayerVelocity(0.0f);
+				thrownMario->mSpeed.y = 0.0f;
+			}
+
+		}
+	}
+
+	setActiveMario(0);
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x802437d0, 0, 0, 0), OnMarioThrow);
