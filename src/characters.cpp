@@ -27,7 +27,7 @@ static TGlobalVector<void *> sCharacterArcs;
 void* arcBufMario;
 
 void setActiveMarioArchive(int id) {
-    if(id > sCharacterArcs.size()) return;
+    if(id >= sCharacterArcs.size() || id < 0) return;
     JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
     archive->unmountFixed();
     arcBufMario = sCharacterArcs.at(id);
@@ -38,16 +38,18 @@ SMS_WRITE_32(SMS_PORT_REGION(0x802A6C4C, 0, 0, 0), 0x60000000);  // Prevent earl
 SMS_WRITE_32(SMS_PORT_REGION(0x802A7148, 0, 0, 0), 0x48000058);
 SMS_WRITE_32(SMS_PORT_REGION(0x802A71A8, 0, 0, 0), 0x60000000);
 
+// TODO: This should be based on a configurable list that is exposed in the module
 void initCharacterArchives(TMarDirector *director) {
     sCharacterArcs.clear();
     sCharacterArcs.reserve(2);
 
-    // TODO: Make number of skins configurable
-    for (unsigned char i = 0; i < 2; ++i) {
-        char buffer[32];
-        snprintf(buffer, 32, "/data/chr%hhu.arc", i);
-        OSReport("Loading buffer %s with id %hhu\n", buffer, i);
-        sCharacterArcs.push_back(SMSLoadArchive(buffer, nullptr, 0, nullptr));
+    // Load mario
+    sCharacterArcs.push_back(SMSLoadArchive("/data/mario.arc", nullptr, 0, nullptr));
+    
+    // Load luigi (if exists)
+    void* playerArchive = SMSLoadArchive("/data/luigi.arc", nullptr, 0, nullptr);
+    if(playerArchive != 0) {
+        sCharacterArcs.push_back(playerArchive);
     }
 
     arcBufMario = sCharacterArcs.at(0);
