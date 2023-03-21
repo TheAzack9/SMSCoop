@@ -5,6 +5,8 @@
 #include <SMS/Manager/ModelWaterManager.hxx>
 #include <JSystem/JDrama/JDRGraphics.hxx>
 #include <JSystem/JDrama/JDRViewObjPtrListT.hxx>
+#include <SMS/Camera/CubeManagerBase.hxx>
+#include <SMS/Map/Map.hxx>
 
 #include <BetterSMS/player.hxx>
 #include <BetterSMS/stage.hxx>
@@ -139,6 +141,7 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x802a6024, 0, 0, 0), TMarioGamePad_updateMeaning_o
 // Description: set correct camera and player before player update to make player move after correct camera
 #define perform__6TMarioFUlPQ26JDrama9TGraphics         ((int (*)(...))0x8024D2A8)
 void TMario_perform_coop(TMario* mario, u32 param_1, JDrama::TGraphics* param_2) {
+	setGraphics(param_2);
 	u8 playerId = getPlayerId(mario);
 	setActiveMario(playerId);
 	setCamera(playerId);
@@ -410,3 +413,60 @@ void TMarDirector_movement_game_override(TMarDirector* marDirector) {
 }
 
 SMS_PATCH_BL(SMS_PORT_REGION(0x8029a4c8, 0, 0, 0), TMarDirector_movement_game_override);
+
+
+
+u32 TMario_perform_fix_sirena_floors(TCubeManagerBase* cubeManagerBase, Vec& marioPos) {
+	int i = getActivePerspective();
+	TMario* mario = marios[i];
+	u32 response = cubeManagerBase->getInCubeNo((Vec&)mario->mTranslation);
+		return response;
+	// if(response > 0) {
+	// }
+	// // for(int i = 0; i < loadedMarios; ++i) {
+	// // }
+	// return 0;
+	// return 0;
+}
+//SMS_PATCH_BL(SMS_PORT_REGION(0x8024d460, 0, 0, 0), TMario_perform_fix_sirena_floors);
+//SMS_PATCH_BL(SMS_PORT_REGION(0x8024d474, 0, 0, 0), TMario_perform_fix_sirena_floors);
+//SMS_PATCH_BL(SMS_PORT_REGION(0x8024d488, 0, 0, 0), TMario_perform_fix_sirena_floors);
+//SMS_PATCH_BL(SMS_PORT_REGION(0x8024d49c, 0, 0, 0), TMario_perform_fix_sirena_floors);
+//SMS_PATCH_BL(SMS_PORT_REGION(0x80195490, 0, 0, 0), TMario_perform_fix_sirena_floors);
+
+u32 SMS_IsInOtherFastCube_override(Vec* position) {
+	TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
+	u32 result = 0;
+	bool shouldCheck = true;
+	if(director->mNextStateA != 3 && director->mNextStateA != 4) {
+		shouldCheck = false;
+	}
+
+	if(shouldCheck) {
+		result = 1;
+	}
+	return result;
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x8021b11c, 0, 0, 0), SMS_IsInOtherFastCube_override);
+//u32 SMS_IsInOtherFastCube_override(Vector* position) {
+//	TApplication* m_app = *gpApplication;
+//	MarDirector* director = m_app->mDirector;
+//	u32 result = 0;
+//	bool shouldCheck = true;
+//	if(director->mNextStateA != 3 && director->mNextStateA != 4) {
+//		shouldCheck = false;
+//	}
+//
+//	if(shouldCheck) {
+//		result = 1;
+//	}
+//	return result;
+//}
+//
+void TMap_perform_watchToWarp_override(TMapWarp* tMapWarp) {
+	int i = getActivePerspective();
+	setActiveMario(i);
+	watchToWarp__8TMapWarpFv(tMapWarp);
+	setActiveMario(0);
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80189760, 0, 0, 0), TMap_perform_watchToWarp_override);

@@ -33,6 +33,10 @@ void setCamera(int i) {
 	//*gpCameraShake = (CPolarSubCamera*)c2[i];
 }
 
+CPolarSubCamera* getCameraById(int i) {
+	return cameras[i];
+}
+
 inline void SDAstoreword(int offset, u32 val) {
 	__asm("stw %0, %1(13)" :: "r" (val), "X" (offset));
 }
