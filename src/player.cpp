@@ -419,20 +419,13 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x8029a4c8, 0, 0, 0), TMarDirector_movement_game_ov
 u32 TMario_perform_fix_sirena_floors(TCubeManagerBase* cubeManagerBase, Vec& marioPos) {
 	int i = getActivePerspective();
 	TMario* mario = marios[i];
-	u32 response = cubeManagerBase->getInCubeNo((Vec&)mario->mTranslation);
-		return response;
-	// if(response > 0) {
-	// }
-	// // for(int i = 0; i < loadedMarios; ++i) {
-	// // }
-	// return 0;
-	// return 0;
+	return cubeManagerBase->getInCubeNo((Vec&)mario->mTranslation);
 }
-//SMS_PATCH_BL(SMS_PORT_REGION(0x8024d460, 0, 0, 0), TMario_perform_fix_sirena_floors);
-//SMS_PATCH_BL(SMS_PORT_REGION(0x8024d474, 0, 0, 0), TMario_perform_fix_sirena_floors);
-//SMS_PATCH_BL(SMS_PORT_REGION(0x8024d488, 0, 0, 0), TMario_perform_fix_sirena_floors);
-//SMS_PATCH_BL(SMS_PORT_REGION(0x8024d49c, 0, 0, 0), TMario_perform_fix_sirena_floors);
-//SMS_PATCH_BL(SMS_PORT_REGION(0x80195490, 0, 0, 0), TMario_perform_fix_sirena_floors);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8024d460, 0, 0, 0), TMario_perform_fix_sirena_floors);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8024d474, 0, 0, 0), TMario_perform_fix_sirena_floors);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8024d488, 0, 0, 0), TMario_perform_fix_sirena_floors);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8024d49c, 0, 0, 0), TMario_perform_fix_sirena_floors);
+SMS_PATCH_BL(SMS_PORT_REGION(0x80195490, 0, 0, 0), TMario_perform_fix_sirena_floors);
 
 u32 SMS_IsInOtherFastCube_override(Vec* position) {
 	TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
@@ -448,21 +441,7 @@ u32 SMS_IsInOtherFastCube_override(Vec* position) {
 	return result;
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x8021b11c, 0, 0, 0), SMS_IsInOtherFastCube_override);
-//u32 SMS_IsInOtherFastCube_override(Vector* position) {
-//	TApplication* m_app = *gpApplication;
-//	MarDirector* director = m_app->mDirector;
-//	u32 result = 0;
-//	bool shouldCheck = true;
-//	if(director->mNextStateA != 3 && director->mNextStateA != 4) {
-//		shouldCheck = false;
-//	}
-//
-//	if(shouldCheck) {
-//		result = 1;
-//	}
-//	return result;
-//}
-//
+
 void TMap_perform_watchToWarp_override(TMapWarp* tMapWarp) {
 	int i = getActivePerspective();
 	setActiveMario(i);
