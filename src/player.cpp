@@ -7,6 +7,7 @@
 #include <JSystem/JDrama/JDRViewObjPtrListT.hxx>
 #include <SMS/Camera/CubeManagerBase.hxx>
 #include <SMS/Map/Map.hxx>
+#include <SMS/Map/JointObj.hxx>
 
 #include <BetterSMS/player.hxx>
 #include <BetterSMS/stage.hxx>
@@ -17,6 +18,9 @@
 
 static u8 loadedMarios = 0;
 static TMario* marios[2];
+
+TJointObj* awakenedObjects[2][2];
+u32 playerPreviousWarpId[2];
 
 #define DYNAMIC_MARIO_LOADING true
 
@@ -192,7 +196,12 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x80276BF0, 0, 0, 0), loadMario);
 // Description: A setup function on stage load to reset global fields per level
 void setupPlayers(TMarDirector *director) {
     for(int i = 0; i < 2; ++i) {
-        marios[loadedMarios] = nullptr;
+        marios[i] = nullptr;
+
+		for(int j = 0; j < 2; ++j) {
+			awakenedObjects[i][j] = NULL;
+		}
+		playerPreviousWarpId[i] = 0;
     }
 	loadedMarios = 0;
 }
@@ -411,41 +420,109 @@ void TMarDirector_movement_game_override(TMarDirector* marDirector) {
 
 	}
 }
-
 SMS_PATCH_BL(SMS_PORT_REGION(0x8029a4c8, 0, 0, 0), TMarDirector_movement_game_override);
 
 
-
-u32 TMario_perform_fix_sirena_floors(TCubeManagerBase* cubeManagerBase, Vec& marioPos) {
+// Description: Override TCubeManagerBase_getInCubeNo to render if mario that is currently rendered is inside fastCubes (used for fast culling checks)
+// Note: This will cause objects that are culled for only one player to have their animations run in 30 fps since it only updates on one screen (this looks wonky) Very noticable in Sirena when player is on different floor
+u32 TCubeManagerBase_getInCubeNo_Perspective_Fix(TCubeManagerBase* cubeManagerBase, Vec& marioPos) {
 	int i = getActivePerspective();
 	TMario* mario = marios[i];
 	return cubeManagerBase->getInCubeNo((Vec&)mario->mTranslation);
 }
-SMS_PATCH_BL(SMS_PORT_REGION(0x8024d460, 0, 0, 0), TMario_perform_fix_sirena_floors);
-SMS_PATCH_BL(SMS_PORT_REGION(0x8024d474, 0, 0, 0), TMario_perform_fix_sirena_floors);
-SMS_PATCH_BL(SMS_PORT_REGION(0x8024d488, 0, 0, 0), TMario_perform_fix_sirena_floors);
-SMS_PATCH_BL(SMS_PORT_REGION(0x8024d49c, 0, 0, 0), TMario_perform_fix_sirena_floors);
-SMS_PATCH_BL(SMS_PORT_REGION(0x80195490, 0, 0, 0), TMario_perform_fix_sirena_floors);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8024d460, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8024d474, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8024d488, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
+SMS_PATCH_BL(SMS_PORT_REGION(0x8024d49c, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
+SMS_PATCH_BL(SMS_PORT_REGION(0x80195490, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
 
-u32 SMS_IsInOtherFastCube_override(Vec* position) {
-	TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
-	u32 result = 0;
-	bool shouldCheck = true;
-	if(director->mNextStateA != 3 && director->mNextStateA != 4) {
-		shouldCheck = false;
-	}
-
-	if(shouldCheck) {
-		result = 1;
-	}
-	return result;
-}
-SMS_PATCH_BL(SMS_PORT_REGION(0x8021b11c, 0, 0, 0), SMS_IsInOtherFastCube_override);
-
+// Description: Try fix warps + some objects being hidden (put to sleep) on certain collision types
+// Note: I have up fixing this for sirena for now due to it being updated based on mario position and many other things. This fix is mainly for e.g rooms in delfino
+// Future fix: Keep track of all stage items for each player somehow (Potentially keeping a set of sleeping and awake items for each player)
 void TMap_perform_watchToWarp_override(TMapWarp* tMapWarp) {
 	int i = getActivePerspective();
 	setActiveMario(i);
+	setCamera(i);
+
+	// Fuck Sirena
+	if(gpMarDirector->mAreaID == TGameSequence::Area::AREA_DELFINO) {
+		watchToWarp__8TMapWarpFv(tMapWarp);
+		setActiveMario(0);
+		setCamera(0);
+		return;
+
+	}
+	tMapWarp->mPrevID = playerPreviousWarpId[i];
+
 	watchToWarp__8TMapWarpFv(tMapWarp);
+	playerPreviousWarpId[i] = tMapWarp->mPrevID;
+	
+	for(int j = 0; j < getPlayerCount(); ++j) {
+		if(marios[i]->mHeldObject == marios[j]) {
+			playerPreviousWarpId[j] = tMapWarp->mPrevID;
+		}
+	}
+
+
+	for(int j = 0; j < getPlayerCount(); ++j) {
+		if(awakenedObjects[j][0]) {
+			awakenedObjects[j][0]->sleep();
+		}
+		if(awakenedObjects[j][1]) {
+			awakenedObjects[j][1]->sleep();
+		}
+	}
+	if(awakenedObjects[i][0]) {
+		awakenedObjects[i][0]->sleep();
+	}
+	if(awakenedObjects[i][1]) {
+		awakenedObjects[i][1]->awake();
+	}
 	setActiveMario(0);
+	setCamera(0);
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x80189760, 0, 0, 0), TMap_perform_watchToWarp_override);
+
+// Description: Override sleep collision to track which one was put to sleep and which one was set awake
+void TJointObj_sleep_watchToWarp_override(TJointObj* jointObj) {
+	if(gpMarDirector->mAreaID == TGameSequence::Area::AREA_DELFINO) {
+		jointObj->sleep();
+		return;
+	}
+	int i = getActivePerspective();
+	awakenedObjects[i][0] = jointObj;
+	if(!awakenedObjects[1-i][1]) awakenedObjects[1-i][1] = jointObj;
+
+	for(int j = 0; j < getPlayerCount(); ++j) {
+		if(marios[i]->mHeldObject == marios[j]) {
+			awakenedObjects[j][0] = jointObj;
+		}
+	}
+
+	jointObj->sleep();
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80195330, 0, 0, 0), TJointObj_sleep_watchToWarp_override);
+SMS_PATCH_BL(SMS_PORT_REGION(0x80195454, 0, 0, 0), TJointObj_sleep_watchToWarp_override);
+
+
+// Description: Override sleep collision to track which one was put to sleep and which one was set awake
+void TJointObj_awake_watchToWarp_override(TJointObj* jointObj) {
+	if(gpMarDirector->mAreaID == TGameSequence::Area::AREA_DELFINO) {
+		jointObj->awake();
+		return;
+	}
+	int i = getActivePerspective();
+	awakenedObjects[i][1] = jointObj;
+	if(!awakenedObjects[1-i][0]) awakenedObjects[1-i][0] = jointObj;
+	
+	for(int j = 0; j < getPlayerCount(); ++j) {
+		if(marios[i]->mHeldObject == marios[j]) {
+			awakenedObjects[j][1] = jointObj;
+		}
+	}
+
+	jointObj->awake();
+
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x8019535c, 0, 0, 0), TJointObj_awake_watchToWarp_override);
+SMS_PATCH_BL(SMS_PORT_REGION(0x80195480, 0, 0, 0), TJointObj_awake_watchToWarp_override);
