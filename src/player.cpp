@@ -8,6 +8,7 @@
 #include <SMS/Camera/CubeManagerBase.hxx>
 #include <SMS/Map/Map.hxx>
 #include <SMS/Map/JointObj.hxx>
+#include <SMS/Player/Yoshi.hxx>
 
 #include <BetterSMS/player.hxx>
 #include <BetterSMS/stage.hxx>
@@ -155,6 +156,37 @@ void TMario_perform_coop(TMario* mario, u32 param_1, JDrama::TGraphics* param_2)
 }
 // Override vtable
 SMS_WRITE_32(SMS_PORT_REGION(0x803dd680, 0, 0, 0), (u32)(&TMario_perform_coop));
+
+bool isYoshiMounted(TYoshi* yoshi) {
+	return yoshi->mState == TYoshi::MOUNTED;
+}
+
+void swapYoshis() {
+	TYoshi* yoshi1 = marios[0]->mYoshi;
+	TYoshi* yoshi2 = marios[1]->mYoshi;
+	if(isYoshiMounted(yoshi1) || isYoshiMounted(yoshi2)) return;
+	marios[0]->mYoshi = yoshi2;
+	marios[1]->mYoshi = yoshi1;
+	yoshi1->mMario = marios[1];
+	yoshi2->mMario = marios[0];
+}
+
+// Run on update
+void updateCoop(TMarDirector* mardirector) {
+	// HACK: Swap the current yoshi every update in order to let one mario ride both yoshis
+	// This is because collision is bound to one specific yoshi per mario
+	// so if we don't do this then one mario can only ride one of the loadedyoshi
+	swapYoshis();
+}
+
+void TYoshi_appearFromEgg_override(TYoshi* yoshi, TVec3f* pos, float param_2, void* egg) {
+	for(int i = 0; i < loadedMarios; ++i) {
+		//marios[i]->mYoshi->appearFromEgg(pos); Does not work, missing parameters?
+		appearFromEgg__6TYoshiFRCQ29JGeometry8TVec3_f(marios[i]->mYoshi, pos, param_2, egg);
+		pos->x += 120.0f;
+	}
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x801bc730, 0, 0, 0), TYoshi_appearFromEgg_override);
 
 // Description: set correct camera and player before player update to make player move after correct camera
 #define playerControl__6TMarioFPQ26JDrama9TGraphics         ((int (*)(...))0x8024DE38)
