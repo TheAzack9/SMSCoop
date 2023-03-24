@@ -767,6 +767,7 @@ SMS_WRITE_32(SMS_PORT_REGION(0x801440c4, 0, 0, 0), 0x60000000);
 
 TGCConsole2* consoles[2];
 
+// Create all instances of TGCConsole2
 void TGCConsole2_constructor(TGCConsole2* console, char* param_1) {
 
 	consoles[0] = console;
@@ -781,6 +782,7 @@ void TGCConsole2_constructor(TGCConsole2* console, char* param_1) {
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x8029db48, 0, 0, 0), TGCConsole2_constructor);
 
+// Load all instances of TGCConsole2
 void TGCConsole2_load(TGCConsole2* tgcConsole2, JSUMemoryInputStream* param_1) {
 	for(int i = 0; i < 2; ++i) {
 		load__11TGCConsole2FR20JSUMemoryInputStream(consoles[i], param_1);
@@ -789,6 +791,7 @@ void TGCConsole2_load(TGCConsole2* tgcConsole2, JSUMemoryInputStream* param_1) {
 // Override vtable
 SMS_WRITE_32(SMS_PORT_REGION(0x803c0314, 0, 0, 0), (u32)(&TGCConsole2_load));
 
+// Load all instances of TGCConsole2
 void TGCConsole2_loadAfter(TGCConsole2* tgcConsole2) {
 	for(int i = 0; i < 2; ++i) {
 		loadAfter__11TGCConsole2Fv(consoles[i]);
@@ -800,6 +803,8 @@ SMS_WRITE_32(SMS_PORT_REGION(0x803c031c, 0, 0, 0), (u32)(&TGCConsole2_loadAfter)
 void TGCConsole2_perform_override(TGCConsole2* tgcConsole2, u32 param_1, JDrama::TGraphics* graphics) {
 	int p = getActivePerspective();
 
+	// We still need to update ui for other players for animations to play correctly
+	// param_1 & 0x8 = drawing, so we remove that flag
 	for(int i = 0; i < loadedMarios; ++i) {
 		if(i == p) continue;
 		setActiveMario(i);
@@ -807,9 +812,9 @@ void TGCConsole2_perform_override(TGCConsole2* tgcConsole2, u32 param_1, JDrama:
 		perform__11TGCConsole2FUlPQ26JDrama9TGraphics(consoles[i], param_1 & (~8), graphics);
 	}
 
+	// Update and draw current ui
 	setActiveMario(p);
 	setCamera(p);
-	
 	perform__11TGCConsole2FUlPQ26JDrama9TGraphics(consoles[p], param_1, graphics);
 	setActiveMario(0);
 	setCamera(0);
