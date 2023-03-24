@@ -9,6 +9,7 @@
 
 #include <SMS/System/Application.hxx>
 
+#include <BetterSMS/application.hxx>
 #include <BetterSMS/game.hxx>
 #include <BetterSMS/module.hxx>
 #include <BetterSMS/stage.hxx>
@@ -17,6 +18,18 @@
 #include <BetterSMS/player.hxx>
 #include "characters.hxx"
 #include "player.hxx"
+#include "splitscreen.hxx"
+
+#include <SMS/GC2D/SelectDir.hxx>
+#include <SMS/Player/MarioGamePad.hxx>
+#include <SMS/System/GCLogoDir.hxx>
+#include <SMS/System/MenuDirector.hxx>
+#include <SMS/System/MovieDirector.hxx>
+#include <SMS/System/RenderModeObj.hxx>
+#include <SMS/System/Resolution.hxx>
+#include <SMS/Manager/FlagManager.hxx>
+#include <SMS/Manager/RumbleManager.hxx>
+#include <SMS/System/CardManager.hxx>
 
 static void initModule() {
     OSReport("Initializing Module...\n");
@@ -33,6 +46,7 @@ static void deinitModule() {
 
     //// Cleanup callbacks
     BetterSMS::Stage::deregisterInitCallback("setupPlayersCoop");
+    //BetterSMS::Game::deregisterChangeCallback("cleanupPlayersCoop");
     BetterSMS::Stage::deregisterUpdateCallback("updateCoop");
     BetterSMS::Stage::deregisterInitCallback("initCharacterArchivesCoop");
 }

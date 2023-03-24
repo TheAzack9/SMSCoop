@@ -9,6 +9,7 @@
 #include <sdk.h>
 #include <raw_fn.hxx>
 #include <BetterSMS/stage.hxx>
+#include <BetterSMS/loading.hxx>
 
 #include "player.hxx"
 #include "camera.hxx"
@@ -26,18 +27,29 @@ static u8* isThpInit = (u8*)0x803ec206;
 
 static u8* MapArea = (u8*)0x803e970e;
 
+bool g_isLoading = false;
+
+void setLoading(bool isLoading) {
+    g_isLoading = isLoading; 
+}
+
 // Description: Checks whether to enable split screen or not
 // TODO: Cleanup, probably don't need to check all of this
 bool isSplitscreen() {
     TApplication *app      = &gpApplication;
     TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
+    if(g_isLoading) {
+        ACTIVE_PERSPECTIVE = 0;
+        return false;
+    }
+
     if (app == nullptr || app->mContext != TApplication::CONTEXT_DIRECT_STAGE ) {
         ACTIVE_PERSPECTIVE = 0;
         return false;
     }
 
-    if (director == nullptr || director->mCurState == TMarDirector::STATE_GAME_STARTING) {
+    if (director == nullptr || (director->mCurState == TMarDirector::STATE_GAME_STARTING && getPlayerCount() <= 1)) {
         ACTIVE_PERSPECTIVE = 0;
         return false;
     }

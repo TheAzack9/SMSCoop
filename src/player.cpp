@@ -10,6 +10,8 @@
 #include <SMS/Map/JointObj.hxx>
 #include <SMS/Player/Yoshi.hxx>
 
+#include <SMS/GC2D/Talk2D2.hxx>
+
 #include <BetterSMS/player.hxx>
 #include <BetterSMS/stage.hxx>
 
@@ -177,6 +179,12 @@ void updateCoop(TMarDirector* mardirector) {
 	// This is because collision is bound to one specific yoshi per mario
 	// so if we don't do this then one mario can only ride one of the loadedyoshi
 	swapYoshis();
+	
+	for(int i = 0; i < loadedMarios; ++i) {
+		TApplication *app      = &gpApplication;
+		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		director->mGamePads[i]->mState.mIsTaling = director->mGamePads[0]->mState.mIsTaling;
+	}
 }
 
 void TYoshi_appearFromEgg_override(TYoshi* yoshi, TVec3f* pos, float param_2, void* egg) {
@@ -227,6 +235,11 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x80276BF0, 0, 0, 0), loadMario);
 
 // Description: A setup function on stage load to reset global fields per level
 void setupPlayers(TMarDirector *director) {
+	setLoading(false);
+}
+
+// Note: There should be a callback when loading starts in BetterSMS
+u32 cleanupPlayersCoop(u32 param_1) {
     for(int i = 0; i < 2; ++i) {
         marios[i] = nullptr;
 
@@ -235,8 +248,12 @@ void setupPlayers(TMarDirector *director) {
 		}
 		playerPreviousWarpId[i] = 0;
     }
+	setLoading(true);
 	loadedMarios = 0;
+	return SMS_getShineIDofExStage__FUc(param_1);
 }
+
+SMS_PATCH_BL(SMS_PORT_REGION(0x802a681c, 0, 0, 0), cleanupPlayersCoop);
 
 // Description: Sets initial fields on load for player and makes player active. 
 // Note: This makes player spawn at level exits
@@ -254,6 +271,25 @@ void SetMario(TMarDirector* director) {
 		marios[i]->mTranslation.x += offsetX;
 		marios[i]->mTranslation.z += offsetZ;
 #endif
+		
+		if(i > 0) {
+			TMario* mario = marios[i];
+			if(mario->mPinnaRail) {
+				J3DFrameCtrl* ctrl = mario->mPinnaRail->getFrameCtrl(0);
+				//ctrl->progress = 0.5;
+				ctrl->mCurFrame = 1238;
+			}
+
+			if(mario->mKoopaRail) {
+				J3DFrameCtrl* ctrl = mario->mKoopaRail->getFrameCtrl(0);
+
+				// snprintf(info, 256, "mKoopaRail progress: %f",
+				// 		ctrl->progress2);
+				// 	emulatorLog(info);
+				//ctrl->progress = 0.5;
+				ctrl->mCurFrame = 1238;
+			}
+		}
 	}
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x802983f8, 0, 0, 0), SetMario);
@@ -440,12 +476,37 @@ void TMarDirector_movement_game_override(TMarDirector* marDirector) {
 	int marioId = getActivePerspective();
 
 	if(loadedMarios > 1) {
-		setCamera(marioId);
-		setActiveMario(marioId);
+		//for(int i = 0; i < loadedMarios; ++i) {
+		//	if(i == marioId) continue;
+		//	setCamera(i);
+		//	setActiveMario(i);
+		//	TApplication *app      = &gpApplication;
+		//	TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		//	auto* p1Gamepad = director->mGamePads[0];
+		//	director->mGamePads[0] = director->mGamePads[i];
+		//	//personToCheckTalk = marioId;
+		//	movement_game__12TMarDirectorFv(marDirector);
+		//	setCamera(0);
+		//	setActiveMario(0);
+		//	director->mGamePads[0] = p1Gamepad;
+		//}
+		int i = marioId;
+		setCamera(i);
+		setActiveMario(i);
+		TApplication *app      = &gpApplication;
+		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		auto* p1Gamepad = director->mGamePads[0];
+		director->mGamePads[0] = director->mGamePads[i];
+
+		u32 frameMeaning = director->mGamePads[0]->mFrameMeaning;
+		director->mGamePads[0]->mFrameMeaning = director->mGamePads[0]->mMeaning;
 		//personToCheckTalk = marioId;
 		movement_game__12TMarDirectorFv(marDirector);
+
+		director->mGamePads[0]->mFrameMeaning = frameMeaning;
 		setCamera(0);
 		setActiveMario(0);
+		director->mGamePads[0] = p1Gamepad;
 	} else {
 		//personToCheckTalk = 0;
 		movement_game__12TMarDirectorFv(marDirector);
@@ -467,6 +528,20 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x8024d474, 0, 0, 0), TCubeManagerBase_getInCubeNo_
 SMS_PATCH_BL(SMS_PORT_REGION(0x8024d488, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
 SMS_PATCH_BL(SMS_PORT_REGION(0x8024d49c, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
 SMS_PATCH_BL(SMS_PORT_REGION(0x80195490, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
+// Description: Override TCubeManagerBase_getInCubeNo to render if mario that is currently rendered is inside fastCubes (used for fast culling checks)
+// Note: This will cause objects that are culled for only one player to have their animations run in 30 fps since it only updates on one screen (this looks wonky) Very noticable in Sirena when player is on different floor
+u32 TCubeManagerBase_getInCubeNo_Perspective_Fix2(TCubeManagerBase* cubeManagerArea, Vec& objPos) {
+	for(int i = 0; i < loadedMarios; ++i) {
+		TMario* mario = marios[i];
+		
+		u32 cubeNo = cubeManagerArea->getInCubeNo((Vec&)mario->mTranslation);
+		*(u32*)((u32)cubeManagerArea + 0x1c) = cubeNo;
+		u32 result = isInAreaCube__16TCubeManagerAreaCFRC3Vec(cubeManagerArea, objPos);
+		if(result) return result;
+	}
+	return 0;
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x8021afec, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix2);
 
 // Description: Try fix warps + some objects being hidden (put to sleep) on certain collision types
 // Note: I have up fixing this for sirena for now due to it being updated based on mario position and many other things. This fix is mainly for e.g rooms in delfino
@@ -558,3 +633,117 @@ void TJointObj_awake_watchToWarp_override(TJointObj* jointObj) {
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x8019535c, 0, 0, 0), TJointObj_awake_watchToWarp_override);
 SMS_PATCH_BL(SMS_PORT_REGION(0x80195480, 0, 0, 0), TJointObj_awake_watchToWarp_override);
+void TBaseNpc_perform_replace(TBaseNPC* npc, u32 param_1, void* graphics) {
+	
+	//int closest = getActivePerspective();
+	int closest = getClosestMarioId(&npc->mTranslation);
+	setActiveMario(closest);
+	setCamera(closest);
+	perform__8TBaseNPCFUlPQ26JDrama9TGraphics(npc, param_1, graphics);
+	setActiveMario(0);
+	setCamera(0);
+}
+// Override vtable
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8468, 0, 0, 0), (u32)(&TBaseNpc_perform_replace));
+
+struct NPCManager {
+	int u0; // 0x0
+	int u1; // 0x4
+	int u2; // 0x8
+	int u3; // 0xc
+	int u4; // 0x10
+	int length; // 0x14
+	TBaseNPC** npcs; // 0x18
+};
+
+
+
+void TNPCManager_clipEnemies(NPCManager* npcManager, JDrama::TGraphics* graphics) {
+	
+	clipEnemies__11TNPCManagerFPQ26JDrama9TGraphics(npcManager, graphics);
+	int length = npcManager->length;
+	for(int j = 0; j < loadedMarios; ++j) {
+		TMario* mario = marios[j];
+		for(int i = 0; i < length; ++i) {
+			TBaseNPC* npc = npcManager->npcs[i];
+			if(PSVECDistance((Vec*)&npc->mTranslation, (Vec*)&mario->mTranslation) < 500) {
+				npc->mStateFlags.asU32 = npc->mStateFlags.asU32 & 0xfffffffb;
+			}
+		}
+	}
+}
+
+// Override vtable
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8734, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d87c4, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d881c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8874, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d88cc, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8924, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d897c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d89d4, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8a2c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8a84, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8adc, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8b34, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8b8c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8be4, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8c3c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8c94, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8cec, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8d44, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8d9c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8df4, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8e4c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8ea4, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8efc, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8f54, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d8fac, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d9004, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d905c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d90b4, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d910c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d9164, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d91bc, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d9214, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803d926c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803df90c, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+SMS_WRITE_32(SMS_PORT_REGION(0x803df964, 0, 0, 0), (u32)(&TNPCManager_clipEnemies));
+
+void TTalk2D2_perform(Talk2D2* talk2d, u32 renderFlags, JDrama::TGraphics* graphics) {
+	int i = getActivePerspective();
+    TApplication *app      = &gpApplication;
+    TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+	talk2d->gamepad = director->mGamePads[i];
+	perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags, graphics);
+}
+SMS_WRITE_32(SMS_PORT_REGION(0x803c03e8, 0, 0, 0), (u32)(&TTalk2D2_perform));
+
+void checkController(Talk2D2* talk2d) {
+	for(int i = 0; i < loadedMarios; ++i) {
+		TApplication *app      = &gpApplication;
+		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		talk2d->gamepad = director->mGamePads[i];
+		setActiveMario(i);
+		setCamera(i);
+		checkControler__8TTalk2D2Fv(talk2d);
+	}
+	setActiveMario(0);
+	setCamera(0);
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80151da4, 0, 0, 0), checkController);
+
+
+void checkBoardController(Talk2D2* talk2d) {
+	for(int i = 0; i < loadedMarios; ++i) {
+		TApplication *app      = &gpApplication;
+		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		talk2d->gamepad = director->mGamePads[i];
+		setActiveMario(i);
+		setCamera(i);
+		checkControler__8TTalk2D2Fv(talk2d);
+	}
+	setActiveMario(0);
+	setCamera(0);
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80151d90, 0, 0, 0), checkBoardController);

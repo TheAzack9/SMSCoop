@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SMS/System/MarDirector.hxx>
+#include <SMS/System/Application.hxx>
 
 void setupPlayers(TMarDirector *director);
 int getPlayerCount();
@@ -9,3 +10,4 @@ TMario* getMarioById(int id);
 int getClosestMarioId(TVec3f* position);
 u8 getPlayerId(TMario* mario);
 void updateCoop(TMarDirector* mardirector);
+bool cleanupPlayersCoop(TApplication* application);
