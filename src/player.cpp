@@ -9,6 +9,7 @@
 #include <SMS/Map/Map.hxx>
 #include <SMS/Map/JointObj.hxx>
 #include <SMS/Player/Yoshi.hxx>
+#include <SMS/GC2D/GCConsole2.hxx>
 
 #include <SMS/GC2D/Talk2D2.hxx>
 
@@ -175,15 +176,17 @@ void swapYoshis() {
 
 // Run on update
 void updateCoop(TMarDirector* mardirector) {
-	// HACK: Swap the current yoshi every update in order to let one mario ride both yoshis
-	// This is because collision is bound to one specific yoshi per mario
-	// so if we don't do this then one mario can only ride one of the loadedyoshi
-	swapYoshis();
+	if(loadedMarios > 1) {
+		// HACK: Swap the current yoshi every update in order to let one mario ride both yoshis
+		// This is because collision is bound to one specific yoshi per mario
+		// so if we don't do this then one mario can only ride one of the loadedyoshi
+		swapYoshis();
 	
-	for(int i = 0; i < loadedMarios; ++i) {
-		TApplication *app      = &gpApplication;
-		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-		director->mGamePads[i]->mState.mIsTaling = director->mGamePads[0]->mState.mIsTaling;
+		for(int i = 0; i < loadedMarios; ++i) {
+			TApplication *app      = &gpApplication;
+			TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+			director->mGamePads[i]->mState.mIsTaling = director->mGamePads[0]->mState.mIsTaling;
+		}
 	}
 }
 
@@ -747,3 +750,69 @@ void checkBoardController(Talk2D2* talk2d) {
 	setCamera(0);
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x80151d90, 0, 0, 0), checkBoardController);
+
+
+// Fix underwater hovering when all water particles are used
+SMS_WRITE_32(SMS_PORT_REGION(0x8026cd84, 0, 0, 0), 0x60000000);
+
+
+// Fix collision for p2 in bowser fight
+SMS_WRITE_32(SMS_PORT_REGION(0x801fa7c8, 0, 0, 0), 0x60000000);
+SMS_WRITE_32(SMS_PORT_REGION(0x801fa7d4, 0, 0, 0), 0x60000000);
+SMS_WRITE_32(SMS_PORT_REGION(0x801fa7e0, 0, 0, 0), 0x60000000);
+SMS_WRITE_32(SMS_PORT_REGION(0x801fa7ec, 0, 0, 0), 0x60000000);
+SMS_WRITE_32(SMS_PORT_REGION(0x801fa7f8, 0, 0, 0), 0x60000000);
+SMS_WRITE_32(SMS_PORT_REGION(0x801440c4, 0, 0, 0), 0x60000000);
+
+
+TGCConsole2* consoles[2];
+
+void TGCConsole2_constructor(TGCConsole2* console, char* param_1) {
+
+	consoles[0] = console;
+	__ct__11TGCConsole2FPCc(console, param_1);
+
+	for(int i = 1; i < 2; ++i) {
+		TGCConsole2* otherConsole = new TGCConsole2();
+		__ct__11TGCConsole2FPCc(otherConsole, param_1);
+		consoles[i] = otherConsole;
+	}
+
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x8029db48, 0, 0, 0), TGCConsole2_constructor);
+
+void TGCConsole2_load(TGCConsole2* tgcConsole2, JSUMemoryInputStream* param_1) {
+	for(int i = 0; i < 2; ++i) {
+		load__11TGCConsole2FR20JSUMemoryInputStream(consoles[i], param_1);
+	}
+}
+// Override vtable
+SMS_WRITE_32(SMS_PORT_REGION(0x803c0314, 0, 0, 0), (u32)(&TGCConsole2_load));
+
+void TGCConsole2_loadAfter(TGCConsole2* tgcConsole2) {
+	for(int i = 0; i < 2; ++i) {
+		loadAfter__11TGCConsole2Fv(consoles[i]);
+	}
+}
+// Override vtable
+SMS_WRITE_32(SMS_PORT_REGION(0x803c031c, 0, 0, 0), (u32)(&TGCConsole2_loadAfter));
+
+void TGCConsole2_perform_override(TGCConsole2* tgcConsole2, u32 param_1, JDrama::TGraphics* graphics) {
+	int p = getActivePerspective();
+
+	for(int i = 0; i < loadedMarios; ++i) {
+		if(i == p) continue;
+		setActiveMario(i);
+		setCamera(i);
+		perform__11TGCConsole2FUlPQ26JDrama9TGraphics(consoles[i], param_1 & (~8), graphics);
+	}
+
+	setActiveMario(p);
+	setCamera(p);
+	
+	perform__11TGCConsole2FUlPQ26JDrama9TGraphics(consoles[p], param_1, graphics);
+	setActiveMario(0);
+	setCamera(0);
+}
+// Override vtable
+SMS_WRITE_32(SMS_PORT_REGION(0x803c0324, 0, 0, 0), (u32)(&TGCConsole2_perform_override));
