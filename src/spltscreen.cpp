@@ -10,15 +10,16 @@
 #include <raw_fn.hxx>
 #include <BetterSMS/stage.hxx>
 #include <BetterSMS/loading.hxx>
+#include <BetterSMS/settings.hxx>
 
 #include "player.hxx"
 #include "camera.hxx"
+#include "settings.hxx"
 
 //#define EXPERIMENTAL_RENDERING
 
 static bool IS_SPLITSCREEN_ENABLED = true;
 static int ACTIVE_PERSPECTIVE = 0;
-static bool IS_VERTICAL_SPLIT = true;
 
 // TODO: Get rid of hard pointers, i think these are in MarDirector
 static u8* MapEpisodePost = (u8*)0x803e970f;
@@ -33,13 +34,19 @@ void setLoading(bool isLoading) {
     g_isLoading = isLoading; 
 }
 
+extern SplitScreenSetting gSplitScreenSetting;
+bool isVerticalSplit() {
+    return gSplitScreenSetting.getInt() == SplitScreenSetting::VERTICAL;
+}
+
+
 // Description: Checks whether to enable split screen or not
 // TODO: Cleanup, probably don't need to check all of this
 bool isSplitscreen() {
     TApplication *app      = &gpApplication;
     TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
-    if(g_isLoading) {
+    if(g_isLoading || gSplitScreenSetting.getInt() == SplitScreenSetting::NONE) {
         ACTIVE_PERSPECTIVE = 0;
         return false;
     }
@@ -107,7 +114,7 @@ int getActivePerspective() {
 // on one frame it renders P1's perspective and the next it renders P2's perspective
 static void processGXCopyDisp(int *unk, char one) {
 	if (isSplitscreen() && ACTIVE_PERSPECTIVE == shouldFlip()) {
-		if (IS_VERTICAL_SPLIT) unk += 160;
+		if (isVerticalSplit()) unk += 160;
 		else unk += 0x46000 / 4;
 	}
     
@@ -252,7 +259,7 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x8021b144, 0, 0, 0), ViewFrustumClipCheck);
 // Reason: We must offset the destination such that on one frame it renders P1's perspective and the next it renders P2's perspective
 static void processGXSetDispCopySrc(u16 param_1, u16 param_2, u16 param_3, u16 param_4) {
     if (isSplitscreen()) {
-        if(IS_VERTICAL_SPLIT) {
+        if(isVerticalSplit()) {
             param_3 = 320;
         } else {
             param_4 = 224;
@@ -271,7 +278,7 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x802f92cc, 0, 0, 0), processGXSetDispCopySrc);
 
 // TODO: Fix widescreen bug here
 static unsigned int SMSGetGameRenderWidth() { 
-	if(isSplitscreen() && IS_VERTICAL_SPLIT) {
+	if(isSplitscreen() && isVerticalSplit()) {
 		return 320;
 	}
 	return 640;
@@ -295,7 +302,7 @@ SMS_PATCH_B(SMS_PORT_REGION(0x802a8ca8, 0, 0, 0), SMSGetGameVideoWidth);
 
 
 static unsigned int SMSGetGameRenderHeight() {
-	if(isSplitscreen() && !IS_VERTICAL_SPLIT) {
+	if(isSplitscreen() && !isVerticalSplit()) {
 		return 224;
 	}
 	return 448;
