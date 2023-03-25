@@ -25,6 +25,7 @@ static TMario* marios[2];
 
 TJointObj* awakenedObjects[2][2];
 u32 playerPreviousWarpId[2];
+bool hasTriggeredMechaBowserCutscene = false;
 
 #define DYNAMIC_MARIO_LOADING true
 
@@ -175,7 +176,7 @@ void swapYoshis() {
 }
 
 // Run on update
-void updateCoop(TMarDirector* mardirector) {
+void updateCoop(TMarDirector* marDirector) {
 	if(loadedMarios > 1) {
 		// HACK: Swap the current yoshi every update in order to let one mario ride both yoshis
 		// This is because collision is bound to one specific yoshi per mario
@@ -187,8 +188,21 @@ void updateCoop(TMarDirector* mardirector) {
 			TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 			director->mGamePads[i]->mState.mIsTaling = director->mGamePads[0]->mState.mIsTaling;
 		}
+		// TODO: Add to TMarDirector=
+		/*char queuedCutscenes = *(char*)((u32)marDirector + 0x24c);
+		char activeCutsceneCount = *(char*)((u32)marDirector + 0x24d);
+		if(IsMechabowser) {
+			*(char*)((u32)marDirector + 0x24d) = *(char*)((u32)marDirector + 0x24c);
+		}*/
 	}
 }
+
+void fireStartDemoCameraMechaBowser(TMarDirector* marDirector, char* param_1, TVec3f* param_2, u32 param_3, f32 param_4, bool param_5, void* param_6, u32 param_7, JDrama::TActor* actor, void* param_9) {
+
+	if(!hasTriggeredMechaBowserCutscene) fireStartDemoCamera__12TMarDirectorFPCcPCQ29JGeometry8TVec3_f(marDirector, param_1, param_2, param_3, param_4, param_5, param_6, param_7, actor, param_9);
+	hasTriggeredMechaBowserCutscene = true;
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80025bcc, 0, 0, 0), fireStartDemoCameraMechaBowser);
 
 void TYoshi_appearFromEgg_override(TYoshi* yoshi, TVec3f* pos, float param_2, void* egg) {
 	for(int i = 0; i < loadedMarios; ++i) {
@@ -253,10 +267,12 @@ u32 cleanupPlayersCoop(u32 param_1) {
     }
 	setLoading(true);
 	loadedMarios = 0;
+	hasTriggeredMechaBowserCutscene = false;
 	return SMS_getShineIDofExStage__FUc(param_1);
 }
 
 SMS_PATCH_BL(SMS_PORT_REGION(0x802a681c, 0, 0, 0), cleanupPlayersCoop);
+
 
 // Description: Sets initial fields on load for player and makes player active. 
 // Note: This makes player spawn at level exits
@@ -274,22 +290,16 @@ void SetMario(TMarDirector* director) {
 		marios[i]->mTranslation.x += offsetX;
 		marios[i]->mTranslation.z += offsetZ;
 #endif
-		
+		// Start p2 about half way through mecha bowser fight
 		if(i > 0) {
 			TMario* mario = marios[i];
 			if(mario->mPinnaRail) {
 				J3DFrameCtrl* ctrl = mario->mPinnaRail->getFrameCtrl(0);
-				//ctrl->progress = 0.5;
 				ctrl->mCurFrame = 1238;
 			}
 
 			if(mario->mKoopaRail) {
 				J3DFrameCtrl* ctrl = mario->mKoopaRail->getFrameCtrl(0);
-
-				// snprintf(info, 256, "mKoopaRail progress: %f",
-				// 		ctrl->progress2);
-				// 	emulatorLog(info);
-				//ctrl->progress = 0.5;
 				ctrl->mCurFrame = 1238;
 			}
 		}
@@ -821,3 +831,47 @@ void TGCConsole2_perform_override(TGCConsole2* tgcConsole2, u32 param_1, JDrama:
 }
 // Override vtable
 SMS_WRITE_32(SMS_PORT_REGION(0x803c0324, 0, 0, 0), (u32)(&TGCConsole2_perform_override));
+
+
+
+// Description: Setup collision for both marios every frame
+// Reason: Allow p2 to collide with platform separately from p1
+void TBathtub_setupCollisions_Override(void* tBathtub) {
+	for (int i = loadedMarios-1; i >= 0; --i) {
+		setActiveMario(i);
+		setupCollisions___8TBathtubFv(tBathtub);
+	}
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x801fb0a4, 0, 0, 0), TBathtub_setupCollisions_Override);
+
+// Description: Disable the remove collision function entierly
+// NB: Might have unknown consequences, should test this further...
+// Reason: Enable collision for p2 in bowser fight
+int TMapCollisionBase_remove(void* m_this) {
+	return (int) m_this;
+}
+// Override vtable
+SMS_WRITE_32(SMS_PORT_REGION(0x803c171c, 0, 0, 0), (u32)(&TMapCollisionBase_remove));
+SMS_WRITE_32(SMS_PORT_REGION(0x803c1764, 0, 0, 0), (u32)(&TMapCollisionBase_remove));
+
+// Description: Switch between which mario is active when updating TBathWaterManager
+// Reason: Allow p2 to collide with bathwater
+void TBathWaterManager_perform_override(void* tBathwaterManager, u32 param_1, void* tGraphics) {
+	// is updating and not draw	
+	if((param_1 & 1) != 0) {
+		int ap = getActivePerspective();
+		for(int i = 0; i < loadedMarios; ++i) {
+			if(i == ap) continue;
+			setActiveMario(i);
+			perform__17TBathWaterManagerFUlPQ26JDrama9TGraphics(tBathwaterManager, param_1, tGraphics);
+		}
+		setActiveMario(ap);
+		perform__17TBathWaterManagerFUlPQ26JDrama9TGraphics(tBathwaterManager, param_1, tGraphics);
+		// Ensure that primary mario is set correct again
+		setActiveMario(0);
+	} else {
+		perform__17TBathWaterManagerFUlPQ26JDrama9TGraphics(tBathwaterManager, param_1, tGraphics);
+	}
+
+}
+SMS_WRITE_32(SMS_PORT_REGION(0x803c27a8, 0, 0, 0), (u32)(&TBathWaterManager_perform_override));

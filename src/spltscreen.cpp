@@ -152,10 +152,22 @@ void setGraphics(JDrama::TGraphics* graphics) {
     graphicsPointer = graphics;
 }
 
+// Description: This fixes some objects not being finished rendering on the correct frame. We basically just move the vsync to happen at the end of the game loop
+// instead of when displaying the result. This even fixes a minor rendering glitch in sunshine that no casual would ever notice lmao
+static bool hasRetraced = false;
+void waitForRetraceOverride(JDrama::TVideo* video, u16 param_1) {
+    if(!hasRetraced) waitForRetrace__Q26JDrama6TVideoFUs(video, param_1);
+    hasRetraced = false;
+}
+
+SMS_PATCH_BL(SMS_PORT_REGION(0x802f80ec, 0, 0, 0), waitForRetraceOverride);
+
 // Description: Flips which perspective is active. Should probably not happen here.
 static void processGXInvalidateTexAll() { 
     if (isSplitscreen()) {
         ACTIVE_PERSPECTIVE ^= 1;
+        waitForRetrace__Q26JDrama6TVideoFUs(gpApplication.mDisplay->mVideo, gpApplication.mDisplay->mRetraceCount);
+        hasRetraced = true;
         //GXInvalidateTexAll(); 
 #ifdef EXPERIMENTAL_RENDERING
         doRetrace = true;
