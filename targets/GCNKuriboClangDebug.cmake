@@ -50,7 +50,7 @@ set(SMS_COMPILE_FLAGS
 set(SMS_LINK_FLAGS
     $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++17>
     --target=${CMAKE_CXX_COMPILER_TARGET}
-
+    
     -r -v -fuse-ld=lld
     -fdeclspec -fno-exceptions -fno-rtti
     -fno-unwind-tables -ffast-math

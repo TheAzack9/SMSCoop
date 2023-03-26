@@ -1,0 +1,13 @@
+#pragma once
+
+namespace SMSCoop {
+	void setCamera(int i);
+	CPolarSubCamera* getCameraById(int i);
+	int getActivePerspective();
+	void setSkinForPlayer(int id, char const* path);
+	TMario* getMarioById(int id);
+	int getClosestMarioId(TVec3f* position);
+	u8 getPlayerId(TMario* mario);
+	int getPlayerCount();
+	void setActiveMario(int id);
+}

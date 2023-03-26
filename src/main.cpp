@@ -21,6 +21,7 @@
 #include "splitscreen.hxx"
 #include "settings.hxx"
 #include "npcLogic.hxx"
+#include "camera.hxx"
 
 #include <SMS/GC2D/SelectDir.hxx>
 #include <SMS/Player/MarioGamePad.hxx>
@@ -477,6 +478,15 @@ KURIBO_MODULE_BEGIN("SMS Coop", "theAzack9", "v1.0") {
     // Set the load and unload callbacks to our registration functions
     KURIBO_EXECUTE_ON_LOAD { 
         initModule(); 
+        KURIBO_EXPORT_AS(SMSCoop::setSkinForPlayer, "setSkinForPlayer__7SMSCoopFiPCc");
+        KURIBO_EXPORT_AS(SMSCoop::setActiveMario, "setActiveMario__7SMSCoopFi");
+        KURIBO_EXPORT_AS(SMSCoop::getMarioById, "getMarioById__7SMSCoopFi");
+        KURIBO_EXPORT_AS(SMSCoop::getActivePerspective, "getActivePerspective__7SMSCoopFv");
+        KURIBO_EXPORT_AS(SMSCoop::getPlayerCount, "getPlayerCount__7SMSCoopFv");
+        KURIBO_EXPORT_AS(SMSCoop::getClosestMarioId, "getClosestMarioId__7SMSCoopFPQ29JGeometry8TVec3<f>");
+        KURIBO_EXPORT_AS(SMSCoop::getPlayerId, "getPlayerId__7SMSCoopFP6TMario");
+        KURIBO_EXPORT_AS(SMSCoop::getCameraById, "getCameraById__7SMSCoopFi");
+        KURIBO_EXPORT_AS(SMSCoop::setCamera, "setCamera__7SMSCoopFi");
     }
     KURIBO_EXECUTE_ON_UNLOAD { deinitModule(); }
 }
