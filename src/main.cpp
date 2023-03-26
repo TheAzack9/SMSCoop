@@ -20,6 +20,7 @@
 #include "player.hxx"
 #include "splitscreen.hxx"
 #include "settings.hxx"
+#include "npcLogic.hxx"
 
 #include <SMS/GC2D/SelectDir.hxx>
 #include <SMS/Player/MarioGamePad.hxx>
@@ -453,6 +454,7 @@ static void initModule() {
     //// Register callbacks
     //BetterSMS::setDebugMode(true);
     BetterSMS::Stage::registerInitCallback("setupPlayersCoop", setupPlayers);
+    BetterSMS::Stage::registerInitCallback("cleanupNpcLogic", resetNpcLogic);
     BetterSMS::Stage::registerUpdateCallback("updateCoop", updateCoop);
     BetterSMS::Stage::registerInitCallback("initCharacterArchivesCoop", initCharacterArchives);
 }
@@ -463,6 +465,7 @@ static void deinitModule() {
     //// Cleanup callbacks
     BetterSMS::Stage::deregisterInitCallback("setupPlayersCoop");
     //BetterSMS::Game::deregisterChangeCallback("cleanupPlayersCoop");
+    BetterSMS::Stage::deregisterInitCallback("cleanupNpcLogic");
     BetterSMS::Stage::deregisterUpdateCallback("updateCoop");
     BetterSMS::Stage::deregisterInitCallback("initCharacterArchivesCoop");
 }

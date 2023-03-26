@@ -25,7 +25,10 @@ static TMario* marios[2];
 
 TJointObj* awakenedObjects[2][2];
 u32 playerPreviousWarpId[2];
+
 bool hasTriggeredMechaBowserCutscene = false;
+u32 jetcoasterDemoCallbackCamera = 0;
+
 
 #define DYNAMIC_MARIO_LOADING true
 
@@ -197,9 +200,29 @@ void updateCoop(TMarDirector* marDirector) {
 	}
 }
 
-void fireStartDemoCameraMechaBowser(TMarDirector* marDirector, char* param_1, TVec3f* param_2, u32 param_3, f32 param_4, bool param_5, void* param_6, u32 param_7, JDrama::TActor* actor, void* param_9) {
+void TCameraBck_setFrame(void* cameraBck, f32 param_1) {
+	setFrame__10TCameraBckFf(cameraBck, param_1 + 1238.0 * jetcoasterDemoCallbackCamera);
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80025c68, 0, 0, 0), TCameraBck_setFrame);
 
-	if(!hasTriggeredMechaBowserCutscene) fireStartDemoCamera__12TMarDirectorFPCcPCQ29JGeometry8TVec3_f(marDirector, param_1, param_2, param_3, param_4, param_5, param_6, param_7, actor, param_9);
+u32 Camera_JetCoasterDemoCallback(CPolarSubCamera* camera, u32 param_1) {
+	for(int i = 0; i < loadedMarios; ++i) {
+		CPolarSubCamera* camera = getCameraById(i);
+		setCamera(i);
+		jetcoasterDemoCallbackCamera = i;
+		// Add ctrl->mCurFrame = 1238; to anim
+		JetCoasterDemoCallBack__FUlUl(camera, param_1);
+	}
+	jetcoasterDemoCallbackCamera = 0;
+	setCamera(0);
+	return 1;
+}
+
+void fireStartDemoCameraMechaBowser(TMarDirector* marDirector, char* param_1, TVec3f* param_2, u32 param_3, f32 param_4, bool param_5, void* param_6, u32 param_7, CPolarSubCamera* camera, void* param_9) {
+
+	if(!hasTriggeredMechaBowserCutscene) {
+		fireStartDemoCamera__12TMarDirectorFPCcPCQ29JGeometry8TVec3_f(marDirector, param_1, param_2, param_3, param_4, param_5, &Camera_JetCoasterDemoCallback, param_7, camera, param_9);
+	}
 	hasTriggeredMechaBowserCutscene = true;
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x80025bcc, 0, 0, 0), fireStartDemoCameraMechaBowser);
@@ -875,3 +898,10 @@ void TBathWaterManager_perform_override(void* tBathwaterManager, u32 param_1, vo
 
 }
 SMS_WRITE_32(SMS_PORT_REGION(0x803c27a8, 0, 0, 0), (u32)(&TBathWaterManager_perform_override));
+
+
+// Fix tree collision
+SMS_WRITE_32(SMS_PORT_REGION(0x801f6cc4, 0, 0, 0), 0x60000000);
+
+// Fix cloud collision
+SMS_WRITE_32(SMS_PORT_REGION(0x801dfc1c, 0, 0, 0), 0x60000000);

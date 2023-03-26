@@ -176,8 +176,10 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x8023d3c4, 0, 0, 0), getCamera);
 void CPolarSubCamera_StartDemoCamera_Override(CPolarSubCamera* p1Camera, char* filename, TVec3f* position, s32 param_3, f32 param_4, bool param_5) {
 	for (int i = 0; i < getPlayerCount(); i++) {
 		CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
+		setCamera(i);
 		camera->startDemoCamera(filename, position, param_3, param_4, param_5);
 	}
+	setCamera(0);
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x80297f7c, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
 SMS_PATCH_BL(SMS_PORT_REGION(0x802981a8, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
@@ -186,8 +188,10 @@ SMS_PATCH_BL(SMS_PORT_REGION(0x8029839c, 0, 0, 0), CPolarSubCamera_StartDemoCame
 void CPolarSubCamera_EndDemoCamera_Override(CPolarSubCamera* camera) {
 	for (int i = 0; i < getPlayerCount(); i++) {
 		CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
+		setCamera(i);
 		camera->endDemoCamera();
 	}
+	setCamera(0);
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x80297f34, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
 SMS_PATCH_BL(SMS_PORT_REGION(0x80297fd4, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
