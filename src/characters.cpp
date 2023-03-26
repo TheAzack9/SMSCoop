@@ -24,7 +24,15 @@
 #include <BetterSMS/libs/global_vector.hxx>
 
 static TGlobalVector<void *> sCharacterArcs;
+static char const* skins[2] = {"/data/mario.arc", "/data/mario.arc"};
 void* arcBufMario;
+
+void setSkinForPlayer(int id, char const* path) {
+    if(id < 0 || id >= 2) {
+        OSReport("Tried to set player skin outside max player bounds of 2\n");
+    }
+    skins[id] = path;
+}
 
 void setActiveMarioArchive(int id) {
     if(id >= sCharacterArcs.size() || id < 0) return;
@@ -43,14 +51,19 @@ void initCharacterArchives(TMarDirector *director) {
     sCharacterArcs.clear();
     sCharacterArcs.reserve(2);
 
-    // Load mario
-    sCharacterArcs.push_back(SMSLoadArchive("/data/mario.arc", nullptr, 0, nullptr));
-    
-    // Load luigi (if exists)
-    void* playerArchive = SMSLoadArchive("/data/luigi.arc", nullptr, 0, nullptr);
-    if(playerArchive != 0) {
-        sCharacterArcs.push_back(playerArchive);
+    void* marioArchive = SMSLoadArchive("/data/mario.arc", nullptr, 0, nullptr);
+    for(int i = 0; i < 2; ++i) {
+        
+        // Load skins (if exists)
+        void* playerArchive = SMSLoadArchive(skins[i], nullptr, 0, nullptr);
+        if(playerArchive != 0) {
+            sCharacterArcs.push_back(playerArchive);
+        } else {
+            sCharacterArcs.push_back(marioArchive);
+        }
     }
+
+    
 
     arcBufMario = sCharacterArcs.at(0);
 

@@ -457,6 +457,8 @@ static void initModule() {
     BetterSMS::Stage::registerInitCallback("cleanupNpcLogic", resetNpcLogic);
     BetterSMS::Stage::registerUpdateCallback("updateCoop", updateCoop);
     BetterSMS::Stage::registerInitCallback("initCharacterArchivesCoop", initCharacterArchives);
+    
+    setSkinForPlayer(0, "/data/luigi.arc");
 }
 
 static void deinitModule() {
