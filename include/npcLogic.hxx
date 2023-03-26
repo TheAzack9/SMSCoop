@@ -1,3 +1,5 @@
 #pragma once
 
-void resetNpcLogic(TMarDirector *director);
+namespace SMSCoop {
+	void resetNpcLogic(TMarDirector *director);
+}

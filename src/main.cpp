@@ -426,12 +426,12 @@ const u8 gSaveIcon[] = {
 
 Settings::SettingsGroup gSettingsGroup(1, 0, Settings::Priority::GAME);
 
-SplitScreenSetting gSplitScreenSetting("Splitscreen");
+SMSCoop::SplitScreenSetting gSplitScreenSetting("Splitscreen");
 
 static BetterSMS::ModuleInfo sModuleInfo{"Mario Sunshine Coop", 1, 0, &gSettingsGroup};
 
 static void initModule() {
-    OSReport("Initializing Module...\n");
+    OSReport("Initializing Coop Module...\n");
     gSettingsGroup.addSetting(&gSplitScreenSetting);
 
     {
@@ -453,29 +453,31 @@ static void initModule() {
 
     //// Register callbacks
     //BetterSMS::setDebugMode(true);
-    BetterSMS::Stage::registerInitCallback("setupPlayersCoop", setupPlayers);
-    BetterSMS::Stage::registerInitCallback("cleanupNpcLogic", resetNpcLogic);
-    BetterSMS::Stage::registerUpdateCallback("updateCoop", updateCoop);
-    BetterSMS::Stage::registerInitCallback("initCharacterArchivesCoop", initCharacterArchives);
+    BetterSMS::Stage::registerInitCallback("SMSCoop_setupPlayersCoop", SMSCoop::setupPlayers);
+    BetterSMS::Stage::registerInitCallback("SMSCoop_cleanupNpcLogic", SMSCoop::resetNpcLogic);
+    BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateCoop", SMSCoop::updateCoop);
+    BetterSMS::Stage::registerInitCallback("SMSCoop_initCharacterArchivesCoop", SMSCoop::initCharacterArchives);
     
-    setSkinForPlayer(0, "/data/luigi.arc");
+    SMSCoop::setSkinForPlayer(1, "/data/luigi.arc");
 }
 
 static void deinitModule() {
-    OSReport("Deinitializing Module...\n");
+    OSReport("Deinitializing Coop Module...\n");
 
     //// Cleanup callbacks
-    BetterSMS::Stage::deregisterInitCallback("setupPlayersCoop");
+    BetterSMS::Stage::deregisterInitCallback("SMSCoop_setupPlayersCoop");
     //BetterSMS::Game::deregisterChangeCallback("cleanupPlayersCoop");
-    BetterSMS::Stage::deregisterInitCallback("cleanupNpcLogic");
-    BetterSMS::Stage::deregisterUpdateCallback("updateCoop");
-    BetterSMS::Stage::deregisterInitCallback("initCharacterArchivesCoop");
+    BetterSMS::Stage::deregisterInitCallback("SMSCoop_cleanupNpcLogic");
+    BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateCoop");
+    BetterSMS::Stage::deregisterInitCallback("SMSCoop_initCharacterArchivesCoop");
 }
 
 // Definition block
 KURIBO_MODULE_BEGIN("SMS Coop", "theAzack9", "v1.0") {
     // Set the load and unload callbacks to our registration functions
-    KURIBO_EXECUTE_ON_LOAD { initModule(); }
+    KURIBO_EXECUTE_ON_LOAD { 
+        initModule(); 
+    }
     KURIBO_EXECUTE_ON_UNLOAD { deinitModule(); }
 }
 KURIBO_MODULE_END()

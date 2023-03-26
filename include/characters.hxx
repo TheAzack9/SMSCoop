@@ -1,5 +1,7 @@
 #pragma once
 
-void setActiveMarioArchive(int id);
-void initCharacterArchives(TMarDirector *director);
-void setSkinForPlayer(int id, char const* path);
+namespace SMSCoop {
+	void setActiveMarioArchive(int id);
+	void initCharacterArchives(TMarDirector *director);
+	void setSkinForPlayer(int id, char const* path);
+}
