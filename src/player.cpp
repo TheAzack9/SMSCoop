@@ -10,6 +10,7 @@
 #include <SMS/Map/JointObj.hxx>
 #include <SMS/Player/Yoshi.hxx>
 #include <SMS/GC2D/GCConsole2.hxx>
+#include <SMS/Manager/FlagManager.hxx>
 
 #include <SMS/GC2D/Talk2D2.hxx>
 
@@ -21,6 +22,16 @@
 #include "splitscreen.hxx"
 
 namespace SMSCoop {
+	typedef struct {
+		TVec3f startPosition;
+		u16 marioAngle;
+		TVec3f cameraPosition;
+		s16 cameraHorizontalAngle;
+		bool shouldRespawn;
+		bool levelIsRestarting;
+	} SpawnData;
+
+
 	static u8 loadedMarios = 0;
 	static TMario* marios[2];
 
@@ -29,6 +40,8 @@ namespace SMSCoop {
 
 	bool hasTriggeredMechaBowserCutscene = false;
 	u32 jetcoasterDemoCallbackCamera = 0;
+	
+	SpawnData spawnData[2];
 
 
 	#define DYNAMIC_MARIO_LOADING true
@@ -327,6 +340,16 @@ namespace SMSCoop {
 					ctrl->mCurFrame = 1238;
 				}
 			}
+
+
+			
+			CPolarSubCamera* camera = getCameraById(i);
+			spawnData[i].startPosition = marios[i]->mTranslation;
+			spawnData[i].marioAngle = marios[i]->mRotation.y;
+			spawnData[i].cameraPosition = camera->mTranslation;
+			spawnData[i].cameraHorizontalAngle = camera->mHorizontalAngle;
+			spawnData[i].shouldRespawn = false;
+			spawnData[i].levelIsRestarting = false;
 		}
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802983f8, 0, 0, 0), SetMario);
@@ -906,4 +929,62 @@ namespace SMSCoop {
 
 	// Fix cloud collision
 	SMS_WRITE_32(SMS_PORT_REGION(0x801dfc1c, 0, 0, 0), 0x60000000);
+
+
+	
+	#define MarioFlagId_Lives 0x20001
+	
+	void loserExecOverride(TMario* mario) {
+		int lives = TFlagManager::smInstance->getFlag(MarioFlagId_Lives);
+		if(lives <= 0) {
+			TFlagManager::smInstance->setFlag(MarioFlagId_Lives, 3);
+
+		}
+		for(int i = 0; i < loadedMarios; ++i) {
+			marios[i]->loserExec();
+		}
+		//TFlagManager::smInstance->decFlag(MarioFlagId_Lives, 1);
+		//TFlagManager::smInstance->setFlag(0x30002, 0);
+		//TFlagManager::smInstance->setFlag(0x30002, 1);
+		//int marioId = getPlayerId(mario);
+		//SpawnData* marioSpawnData = &spawnData[marioId];
+
+		//CPolarSubCamera* camera = getCameraById(marioId);
+		//marioSpawnData->shouldRespawn = false;
+		//mario->mHealth = 8;
+		//mario->mWaterHealth = 8.0;
+		//// camera->position = marioSpawnData->cameraPosition;
+		//// camera->position.y += 1000.0f;
+		//mario->mTranslation = marioSpawnData->startPosition;
+		//mario->mTranslation.y += 200.0;
+		//mario->mRotation.y = spawnData[marioId].marioAngle;
+		//mario->mSpeed.set(0, 0, 0);
+		//mario->setPlayerVelocity(0.0f);
+		//camera->mHorizontalAngle = spawnData[marioId].cameraHorizontalAngle;
+		//camera->mInterpolateDistance = 0.0;
+		//camera->JSGSetViewPosition((Vec&)marioSpawnData->cameraPosition);
+		//camera->mTranslation.y = mario->mTranslation.y + 200.0f;
+		//camera->JSGSetViewTargetPosition((Vec&)mario->mTranslation);
+		//camera->warpPosAndAt(camera->mInterpolateDistance, spawnData[marioId].cameraHorizontalAngle);
+		//mario->changePlayerStatus(0x0000088C, 0, false);
+
+		//// TODO: Better way to refill water?
+		//mario->mFludd->mCurrentWater = 0x2710;
+		//mario->warpOut();
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80030ff0, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802438c8, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024390c, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024b280, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024b2f8, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024f808, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802527cc, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80252874, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8025a1e0, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028aef0, 0, 0, 0), loserExecOverride);
+	// Technically a changePlayerStatus
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024fba0, 0, 0, 0), loserExecOverride);
+	
+	// Stop game overs
+	SMS_WRITE_32(SMS_PORT_REGION(0x8024fb6c, 0, 0, 0), 0x60000000);
 }

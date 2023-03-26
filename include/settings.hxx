@@ -5,7 +5,7 @@
 namespace SMSCoop {
     class SplitScreenSetting final : public BetterSMS::Settings::IntSetting {
     public:
-        enum Kind { VERTICAL, HORIZONTAL, NONE };
+        enum Kind { NONE, VERTICAL, HORIZONTAL };
 
     
         SplitScreenSetting(const char *name) : IntSetting(name, &mSplitScreenValue), mSplitScreenValue(VERTICAL) {

@@ -21,7 +21,7 @@ target_include_directories(SunshineCoop PUBLIC "include")
 target_compile_options(SunshineCoop PUBLIC ${SMS_COMPILE_FLAGS})
 target_link_options(SunshineCoop PUBLIC ${SMS_LINK_FLAGS})
 
-list(APPEND BETTER_MODULE_CONFIG_DEFINES "KURIBO_NO_TYPES" "SMSCoop=\"v1.0\"")
+list(APPEND BETTER_MODULE_CONFIG_DEFINES "KURIBO_NO_TYPES" "Sunshine_Coop=\"v1.0\"")
 
 target_compile_definitions(SunshineCoop PUBLIC ${BETTER_MODULE_CONFIG_DEFINES})
 
