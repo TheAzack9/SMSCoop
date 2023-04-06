@@ -13,6 +13,7 @@
 #include <JSystem/JKernel/JKRDvdRipper.hxx>
 #include <JSystem/JKernel/JKRHeap.hxx>
 #include <JSystem/JKernel/JKRMemArchive.hxx>
+#include <JSystem/JKernel/JKRDvdFile.hxx>
 #include <SMS/Camera/PolarSubCamera.hxx>
 #include <SMS/System/Application.hxx>
 #include <SMS/assert.h>
@@ -35,6 +36,10 @@ namespace SMSCoop {
         }
         skins[id] = path;
     }
+	void unmountActiveMarioArchive() {
+        JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
+        archive->unmountFixed();
+    }
 
     void setActiveMarioArchive(int id) {
         if(id >= sCharacterArcs.size() || id < 0) return;
@@ -55,6 +60,12 @@ namespace SMSCoop {
 
         void* marioArchive = SMSLoadArchive("/data/mario.arc", nullptr, 0, nullptr);
         for(int i = 0; i < 2; ++i) {
+            if(strcmp(skins[i], "/data/mario.arc") == 0) {
+                OSReport("Loading default mario skin %s\n", skins[i]);
+                sCharacterArcs.push_back(marioArchive);
+                continue;
+            }
+            OSReport("Loading skin %s\n", skins[i]);
         
             // Load skins (if exists)
             void* playerArchive = SMSLoadArchive(skins[i], nullptr, 0, nullptr);
@@ -107,10 +118,12 @@ namespace SMSCoop {
     ////SMS_PATCH_BL(SMS_PORT_REGION(0x80246B60, 0, 0, 0), getGlobalPlayerSoundAnim);
 
     static void getGlobalPlayerTobiKomiAnim(MActorAnmData *data, const char *local_path) {
-        if (!JKRFileLoader::findFirstFile("/common/mario/04_tobikomi")) {
+        auto* first_file = JKRFileLoader::findFirstFile("/common/mario/04_tobikomi");
+        if (!first_file) {
             data->init(local_path, nullptr);
             return;
         }
+        delete first_file;
         data->init("common/mario/04_tobikomi", nullptr);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8027211C, 0, 0, 0), getGlobalPlayerTobiKomiAnim);
@@ -121,10 +134,12 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x80272160, 0, 0, 0), getGlobalPlayerTobiKomiMdl);
 
     static void getGlobalPlayerWaterAnim(MActorAnmData *data, const char *local_path) {
-        if (!JKRFileLoader::findFirstFile("/common/mario/01_waterboost")) {
+        auto* first_file = JKRFileLoader::findFirstFile("/common/mario/01_waterboost");
+        if (!first_file) {
             data->init(local_path, nullptr);
             return;
         }
+        delete first_file;
         data->init("common/mario/01_waterboost", nullptr);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802721F0, 0, 0, 0), getGlobalPlayerWaterAnim);
@@ -191,10 +206,12 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x802423B0, 0, 0, 0), getGlobalPlayerWaterDiverHelmMdl);
 
     static void getGlobalPlayerWaterGunAnim(MActorAnmData *data, const char *local_path) {
-        if (!JKRFileLoader::findFirstFile("/common/mario/01_waterboost")) {
+        auto* first_file = JKRFileLoader::findFirstFile("/common/mario/01_waterboost");
+        if (!first_file) {
             data->init(local_path, nullptr);
             return;
         }
+        delete first_file;
 
         char buffer[64];
         snprintf(buffer, 64, "/common/%s", local_path+1);  // Replace /mario/ with /common/
@@ -204,23 +221,25 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x8026A6E8, 0, 0, 0), getGlobalPlayerWaterGunAnim);
 
     static void *getGlobalPlayerWaterGunMdl(const char *local_path) {
-        if (!JKRFileLoader::findFirstFile("/common/mario/01_waterboost")) {
+        auto* first_file = JKRFileLoader::findFirstFile("/common/mario/01_waterboost");
+        if (!first_file) {
             return JKRFileLoader::getGlbResource(local_path);
         }
-
+        delete first_file;
         char buffer[64];
         snprintf(buffer, 64, "/common/%s", local_path+1);  // Replace /mario/ with /common/
-            OSReport(buffer);
 
         return JKRFileLoader::getGlbResource(buffer);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8026A71C, 0, 0, 0), getGlobalPlayerWaterGunMdl);
 
     static void getGlobalPlayerWaterGunBodyAnim(MActorAnmData *data, const char *local_path) {
-        if (!JKRFileLoader::findFirstFile("/common/mario/01_waterboost")) {
+        auto* first_file = JKRFileLoader::findFirstFile("/common/mario/01_waterboost");
+        if (!first_file) {
             data->init(local_path, nullptr);
             return;
         }
+        delete first_file;
         data->init("common/mario/watergun2/body", nullptr);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8026A550, 0, 0, 0), getGlobalPlayerWaterGunBodyAnim);

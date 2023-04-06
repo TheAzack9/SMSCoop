@@ -453,7 +453,7 @@ static void initModule() {
     BetterSMS::registerModule(&sModuleInfo);
 
     //// Register callbacks
-    //BetterSMS::setDebugMode(true);
+    BetterSMS::setDebugMode(true);
     BetterSMS::Stage::registerInitCallback("SMSCoop_setupPlayersCoop", SMSCoop::setupPlayers);
     BetterSMS::Stage::registerInitCallback("SMSCoop_cleanupNpcLogic", SMSCoop::resetNpcLogic);
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateCoop", SMSCoop::updateCoop);

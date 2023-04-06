@@ -5,6 +5,9 @@
 #include <JSystem/JDrama/JDRActor.hxx>
 #include <SMS/Enemy/SpineBase.hxx>
 
+#include "splitscreen.hxx"
+#include "camera.hxx"
+
 #define GetObjectFunction( object, func ) (void*)*(void**)((int)*(int*)object + func)
 
 namespace SMSCoop {
@@ -104,20 +107,71 @@ namespace SMSCoop {
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803bcb9c, 0, 0, 0), (u32)(&TNerveRocketPossessedNozzle_execute));
 
-	typedef void (*controlFunc)(THitActor* smallEnemy);
-	void TSmallEnemy_control(THitActor* smallEnemy) {
+	//typedef void (*controlFunc)(THitActor* smallEnemy);
+	//void TSmallEnemy_control(THitActor* smallEnemy) {
+	//
+	//	int cm = getClosestMarioId(&smallEnemy->mTranslation);
+	//	setActiveMario(cm);
+	//
+	//
+ //		auto control = (controlFunc) GetObjectFunction(smallEnemy, 200);
+
+	//
+	//	control(smallEnemy);
+
+	//	//executeNerve(nerve, spineBase);
+	//	setActiveMario(0);
+	//}
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x8006c6f8, 0, 0, 0), TSmallEnemy_control);
 	
-		int cm = getClosestMarioId(&smallEnemy->mTranslation);
+	// Note: param_1 might not be a THitActor, i just optimistically assume so atm
+	void TEnemyManager_TViewObj_testPerform(THitActor* hitActor, u32 renderFlags, JDrama::TGraphics* graphics) {
+	
+		int cm = getClosestMarioId(&hitActor->mTranslation);
 		setActiveMario(cm);
-	
-	
- 		auto control = (controlFunc) GetObjectFunction(smallEnemy, 200);
-
-	
-		control(smallEnemy);
-
-		//executeNerve(nerve, spineBase);
+		setCamera(cm);
+		testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(hitActor, renderFlags, graphics);
+		
+		setCamera(0);
 		setActiveMario(0);
 	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x8006c6f8, 0, 0, 0), TSmallEnemy_control);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8003e2f0, 0, 0, 0), TEnemyManager_TViewObj_testPerform);
+	// TMapObj
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8021c66c, 0, 0, 0), TEnemyManager_TViewObj_testPerform);
+	// TEffectObjManager 
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80034244, 0, 0, 0), TEnemyManager_TViewObj_testPerform);
+	
+	// Note: param_1 might not be a THitActor, i just optimistically assume so atm
+	void testPerform_each_mario(JDrama::TViewObj* hitActor, u32 renderFlags, JDrama::TGraphics* graphics) {
+	
+		if(getPlayerCount() > 0) {
+			int i = getActivePerspective();
+			setActiveMario(i);
+			setCamera(i);
+			testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(hitActor, renderFlags, graphics);
+			setCamera(0);
+			setActiveMario(0);
+		} else {
+				testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(hitActor, renderFlags, graphics);
+		}
+		
+		
+	}
+
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802faad8, 0, 0, 0), testPerform_each_mario);
+
+
+	// TODO: Fix sky in another way
+	/*void TViewObjPtrList_perform(JDrama::TViewObj* viewObj, u32 renderFlags, JDrama::TGraphics* graphics) {
+	
+		int cm = getActivePerspective();
+		setActiveMario(cm);
+		setCamera(cm);
+		testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(viewObj, renderFlags, graphics);
+		setCamera(0);
+		setActiveMario(0);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802a0450, 0, 0, 0), TViewObjPtrList_perform);
+	
+	*/
 }

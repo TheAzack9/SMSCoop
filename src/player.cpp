@@ -71,9 +71,12 @@ namespace SMSCoop {
 	// Description: Sets the global instance of mario and all access parameters
 	// Note: Cannot be set every other frame because game logic depends on one static global instance so swapping breaks the game.
 	// A lot of how mario works is connected to the global mario and must be manually changed to work with multiple players
+	
+static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	void setActiveMario(int id) {
 		TMario* mario = marios[id];
 		gpMarioOriginal = mario;
+		*gpMarioOriginalCoop = mario;
 		SMS_SetMarioAccessParams__Fv();
 	}
 
@@ -109,7 +112,8 @@ namespace SMSCoop {
 		load__Q26JDrama47TViewObjPtrListT_9(viewObjPtrList, param_1);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80223548, 0, 0, 0), JDrama_TViewObjPtrListT_load);
-
+	
+	#define load__6TMarioFR20JSUMemoryInputStream         ((int (*)(...))0x80276BD0)
 	// Description: The loading of the mario nameRef section.
 	// Optimization: See if we can re-use the instance created in genObject instead of deleting.
 	u32 JDrama_TNameRefGen_load_Mario(JDrama::TNameRef* refGen, JSUMemoryInputStream* memoryStream, JSUMemoryInputStream* memoryStream2) {
@@ -127,15 +131,24 @@ namespace SMSCoop {
 			// Create marios and load them
 			for(int i = 0; i < 2; ++i) {
 				memoryStream->setBuffer(buffer, 73);
-				TMario* mario = new TMario();
-				mario->load(*memoryStream);
-				mario_viewObjPtrList->mViewObjList.push_back(mario);
+				TMario* mario = (TMario*) response;
+				marios[i] = mario;
+
+				if(i != 0) {
+					mario = new TMario();
+				}
+    auto *currentHeap = JKRHeap::sCurrentHeap;
+		OSReport("Free heap before load mario %X\n", currentHeap->getTotalFreeSize());
+					mario->load(*memoryStream);
+					mario_viewObjPtrList->mViewObjList.push_back(mario);
+		OSReport("Free heap after load mario %X\n", currentHeap->getTotalFreeSize());
 			}
 
-
+			//loadedMarios = 1;
+			//unmountActiveMarioArchive();
 			// We cleanup the unused mario that is just used as a locator
-			TMario* mario = (TMario*)response;
-			delete mario;
+			//TMario* mario = (TMario*)response;
+			//delete mario;
 		
 			isMarioCurrentlyLoadingViewObj = false;
 			return 0x0;
@@ -144,6 +157,63 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a0734, 0, 0, 0), JDrama_TNameRefGen_load_Mario);
 	#endif
+
+		void initModel(TMario* mario) {
+    auto *currentHeap = JKRHeap::sCurrentHeap;
+		OSReport("Free heap size before initModel%X\n", currentHeap->getTotalFreeSize());
+		mario->initModel();
+		OSReport("Free heap size after initModel %X\n", currentHeap->getTotalFreeSize());
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802767c8, 0, 0, 0), initModel);
+
+
+	void initWaterEmitShit(void* gun) {
+		__ct__14TWaterEmitInfoFPCc(gun);
+    auto *currentHeap = JKRHeap::sCurrentHeap;
+		OSReport("Free heap size a bit after start %X\n", currentHeap->getTotalFreeSize());
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8027677c, 0, 0, 0), initWaterEmitShit);
+	
+	void initWatergun(TWaterGun* gun) {
+    auto *currentHeap = JKRHeap::sCurrentHeap;
+		OSReport("Free heap before watergunInit %X\n", currentHeap->getTotalFreeSize());
+		gun->init();
+		OSReport("Free heap after watergunInit %X\n", currentHeap->getTotalFreeSize());
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8027681c, 0, 0, 0), initWatergun);
+	
+	bool isFirstInit = true;
+	#define initValues__6TMarioFv         ((int (*)(...))0x802766B0)
+	void customInitTest(TMario* mario) {
+		
+		if(true || marios[0] == mario) {
+    auto *currentHeap = JKRHeap::sCurrentHeap;
+		OSReport("Free heap size before %X\n", currentHeap->getTotalFreeSize());
+			initValues__6TMarioFv(mario);
+		OSReport("Free heap after %X\n", currentHeap->getTotalFreeSize());
+		} else {
+			//TMarioControllerWork* work = (TMarioControllerWork*)__nwa__FUl(0x24);
+			//mario->mControllerWork = work;
+
+			//TMarioCap* cap = (TMarioCap*)__nwa__FUl(0x38);
+			//__ct__9TMarioCapFP6TMario(cap);
+			//mario->mCap = cap;
+
+			//TWaterGun* waterGun = new TWaterGun(mario);
+			//mario->mFludd = waterGun;
+			//waterGun->init();
+			//waterGun->setAmountToRate(mario->mInitialWater / 100.0f);
+
+			//TYoshi* yoshi = new TYoshi();
+			//mario->mYoshi = yoshi;
+			//yoshi->init(mario);
+
+			//mario->initModel();
+		}
+
+		isFirstInit = false;
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803dd720, 0, 0, 0), (u32)(&customInitTest));
 
 	// Description: Override the controller update to ensure that correct mario is checked.
 	// Note: Certain things like the y-cam is for some reason tied directly to the controller update.
@@ -192,18 +262,35 @@ namespace SMSCoop {
 		yoshi2->mMario = marios[0];
 	}
 
+	void setWaterColorForMario(int id) {
+		TYoshi* yoshi = marios[id]->mYoshi;
+		if(isYoshiMounted(yoshi)) {
+			gpModelWaterManager->mWaterCardType = yoshi->mType;
+		} else {
+			gpModelWaterManager->mWaterCardType = 0;
+		}
+	}
+	
 	// Run on update
 	void updateCoop(TMarDirector* marDirector) {
+  //  auto *currentHeap = JKRHeap::sCurrentHeap;
+		//OSReport("Free heap size %X\n", currentHeap->getTotalFreeSize());
 		if(loadedMarios > 1) {
-			// HACK: Swap the current yoshi every update in order to let one mario ride both yoshis
-			// This is because collision is bound to one specific yoshi per mario
-			// so if we don't do this then one mario can only ride one of the loadedyoshi
-			swapYoshis();
+			
+			int id = getActivePerspective();
+			setWaterColorForMario(id);
+
+			TMario* luigi = marios[1];
+			luigi->mJumpParams.mRotateJumpForceY.set( 70 * 1.2);
+			luigi->mJumpParams.mSecJumpForce.set(52 * 1.2);
+			luigi->mJumpParams.mUltraJumpForce.set(75 * 1.2);
 	
 			for(int i = 0; i < loadedMarios; ++i) {
 				TApplication *app      = &gpApplication;
 				TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 				director->mGamePads[i]->mState.mIsTaling = director->mGamePads[0]->mState.mIsTaling;
+				
+			
 			}
 			// TODO: Add to TMarDirector=
 			/*char queuedCutscenes = *(char*)((u32)marDirector + 0x24c);
@@ -211,6 +298,10 @@ namespace SMSCoop {
 			if(IsMechabowser) {
 				*(char*)((u32)marDirector + 0x24d) = *(char*)((u32)marDirector + 0x24c);
 			}*/
+			// HACK: Swap the current yoshi every update in order to let one mario ride both yoshis
+			// This is because collision is bound to one specific yoshi per mario
+			// so if we don't do this then one mario can only ride one of the loadedyoshi
+			swapYoshis();
 		}
 	}
 
@@ -466,6 +557,14 @@ namespace SMSCoop {
 		}
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80299af8, 0, 0, 0), OnCheckActorsHit);
+
+		// Description: Collision check run for TMario
+	void TOBjHitCheck_suffererIsInAttackArea(void* tObjHitCheck, THitActor* hitActor, THitActor* mario){
+		
+		int cm = getClosestMarioId(&hitActor->mTranslation);
+		suffererIsInAttackArea__12TObjHitCheckFP9THitActorP9THitActor(tObjHitCheck, hitActor, marios[cm]);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8021bc00, 0, 0, 0), TOBjHitCheck_suffererIsInAttackArea);
 
 	// Description: Replaces player throw function to override how TMarios are thrown
 	// Throw strength is based on a combination of airborn and how far the stick is pressed. 
@@ -937,40 +1036,46 @@ namespace SMSCoop {
 	void loserExecOverride(TMario* mario) {
 		int lives = TFlagManager::smInstance->getFlag(MarioFlagId_Lives);
 		if(lives <= 0) {
+			for(int i = 0; i < loadedMarios; ++i) {
+				marios[i]->loserExec();
+			}
 			TFlagManager::smInstance->setFlag(MarioFlagId_Lives, 3);
 
 		}
-		for(int i = 0; i < loadedMarios; ++i) {
-			marios[i]->loserExec();
+
+		TFlagManager::smInstance->decFlag(MarioFlagId_Lives, 1);
+		int marioId = getPlayerId(mario);
+		
+		for(int i = 0; i < 2; ++i) {
+			//OSReport("Offset %X\n", (u32)(((u32*)consoles[i]+ 0x70/4)) - (u32)consoles[i]);
+			*(u16*)(((u32*)consoles[i]+ 0x70/4)) = 200;
+			startAppearMario__11TGCConsole2Fb(consoles[i], true);
 		}
-		//TFlagManager::smInstance->decFlag(MarioFlagId_Lives, 1);
-		//TFlagManager::smInstance->setFlag(0x30002, 0);
-		//TFlagManager::smInstance->setFlag(0x30002, 1);
-		//int marioId = getPlayerId(mario);
-		//SpawnData* marioSpawnData = &spawnData[marioId];
 
-		//CPolarSubCamera* camera = getCameraById(marioId);
-		//marioSpawnData->shouldRespawn = false;
-		//mario->mHealth = 8;
-		//mario->mWaterHealth = 8.0;
-		//// camera->position = marioSpawnData->cameraPosition;
-		//// camera->position.y += 1000.0f;
-		//mario->mTranslation = marioSpawnData->startPosition;
-		//mario->mTranslation.y += 200.0;
-		//mario->mRotation.y = spawnData[marioId].marioAngle;
-		//mario->mSpeed.set(0, 0, 0);
-		//mario->setPlayerVelocity(0.0f);
-		//camera->mHorizontalAngle = spawnData[marioId].cameraHorizontalAngle;
-		//camera->mInterpolateDistance = 0.0;
-		//camera->JSGSetViewPosition((Vec&)marioSpawnData->cameraPosition);
-		//camera->mTranslation.y = mario->mTranslation.y + 200.0f;
-		//camera->JSGSetViewTargetPosition((Vec&)mario->mTranslation);
-		//camera->warpPosAndAt(camera->mInterpolateDistance, spawnData[marioId].cameraHorizontalAngle);
-		//mario->changePlayerStatus(0x0000088C, 0, false);
+		SpawnData* marioSpawnData = &spawnData[marioId];
 
-		//// TODO: Better way to refill water?
-		//mario->mFludd->mCurrentWater = 0x2710;
-		//mario->warpOut();
+		CPolarSubCamera* camera = getCameraById(marioId);
+		marioSpawnData->shouldRespawn = false;
+		mario->mHealth = 8;
+		mario->mWaterHealth = 8.0;
+		// camera->position = marioSpawnData->cameraPosition;
+		// camera->position.y += 1000.0f;
+		mario->mTranslation = marioSpawnData->startPosition;
+		mario->mTranslation.y += 200.0;
+		mario->mRotation.y = spawnData[marioId].marioAngle;
+		mario->mSpeed.set(0, 0, 0);
+		mario->setPlayerVelocity(0.0f);
+		camera->mHorizontalAngle = spawnData[marioId].cameraHorizontalAngle;
+		camera->mInterpolateDistance = 0.0;
+		camera->JSGSetViewPosition((Vec&)marioSpawnData->cameraPosition);
+		camera->mTranslation.y = mario->mTranslation.y + 200.0f;
+		camera->JSGSetViewTargetPosition((Vec&)mario->mTranslation);
+		camera->warpPosAndAt(camera->mInterpolateDistance, spawnData[marioId].cameraHorizontalAngle);
+		mario->changePlayerStatus(0x0000088C, 0, false);
+
+		// TODO: Better way to refill water?
+		mario->mFludd->mCurrentWater = 0x2710;
+		mario->warpOut();
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80030ff0, 0, 0, 0), loserExecOverride);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802438c8, 0, 0, 0), loserExecOverride);

@@ -12,4 +12,5 @@ namespace SMSCoop {
 	u8 getPlayerId(TMario* mario);
 	void updateCoop(TMarDirector* mardirector);
 	bool cleanupPlayersCoop(TApplication* application);
+	void setWaterColorForMario(int id);
 }
