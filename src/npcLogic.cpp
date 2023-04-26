@@ -14,10 +14,13 @@ namespace SMSCoop {
 	// TODO: Reset on stage load
 	char canRocketMountMario[2] = {1, 1};
 
+	TMario* marioEnteringGate = nullptr;
+
 	void resetNpcLogic(TMarDirector *director) {
 		for(int i = 0; i < 2; ++i) {
 			canRocketMountMario[i] = 1;
 		}
+		marioEnteringGate = nullptr;
 	}
 
 	void TRocket_attackToMario(JDrama::TActor* rocket) {
@@ -29,7 +32,6 @@ namespace SMSCoop {
 		char* canHaveRocket = (char*)((int)liveManager + 0x60);
 		*canHaveRocket = canRocketMountMario[cm];
 		char* testing = (char*)((int)liveManager + 0x68);
-		OSReport("TESTING %d %d %d %d \n", *canHaveRocket, *testing, canRocketMountMario[0], canRocketMountMario[1]);
 
 		attackToMario__7TRocketFv(rocket);
 
@@ -127,9 +129,13 @@ namespace SMSCoop {
 	// Note: param_1 might not be a THitActor, i just optimistically assume so atm
 	void TEnemyManager_TViewObj_testPerform(THitActor* hitActor, u32 renderFlags, JDrama::TGraphics* graphics) {
 	
-		int cm = getClosestMarioId(&hitActor->mTranslation);
-		setActiveMario(cm);
-		setCamera(cm);
+        TApplication *app      = &gpApplication;
+        TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		if(director->mAreaID != TGameSequence::Area::AREA_MAREBOSS) {
+			int cm = getClosestMarioId(&hitActor->mTranslation);
+			setActiveMario(cm);
+			setCamera(cm);
+		}
 		testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(hitActor, renderFlags, graphics);
 		
 		setCamera(0);
@@ -142,12 +148,16 @@ namespace SMSCoop {
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80034244, 0, 0, 0), TEnemyManager_TViewObj_testPerform);
 	
 	// Note: param_1 might not be a THitActor, i just optimistically assume so atm
-	void testPerform_each_mario(JDrama::TViewObj* hitActor, u32 renderFlags, JDrama::TGraphics* graphics) {
+	void testPerform_each_mario(THitActor* hitActor, u32 renderFlags, JDrama::TGraphics* graphics) {
 	
+        TApplication *app      = &gpApplication;
+        TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 		if(getPlayerCount() > 0) {
-			int i = getActivePerspective();
-			setActiveMario(i);
-			setCamera(i);
+			if(director->mAreaID != TGameSequence::Area::AREA_MAREBOSS) {
+				int i = getActivePerspective();
+				setActiveMario(i);
+				setCamera(i);
+			}
 			testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(hitActor, renderFlags, graphics);
 			setCamera(0);
 			setActiveMario(0);
@@ -159,19 +169,91 @@ namespace SMSCoop {
 	}
 
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802faad8, 0, 0, 0), testPerform_each_mario);
+	 
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802a0450, 0, 0, 0), testPerform_each_mario);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802a4ea8, 0, 0, 0), testPerform_each_mario);
 
-
-	// TODO: Fix sky in another way
-	/*void TViewObjPtrList_perform(JDrama::TViewObj* viewObj, u32 renderFlags, JDrama::TGraphics* graphics) {
 	
-		int cm = getActivePerspective();
+	void TModelGate_perform(THitActor* modelGate, u32 performFlags, JDrama::TGraphics* graphics) {
+
+		int currentMario = getPlayerId(gpMarioOriginal);
+
+		int cm = getClosestMarioId(&modelGate->mTranslation);
 		setActiveMario(cm);
 		setCamera(cm);
-		testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(viewObj, renderFlags, graphics);
-		setCamera(0);
-		setActiveMario(0);
+		perform__10TModelGateFUlPQ26JDrama9TGraphics(modelGate, performFlags, graphics);
+		
+		setCamera(currentMario);
+		setActiveMario(currentMario);
 	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x802a0450, 0, 0, 0), TViewObjPtrList_perform);
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d3fbc, 0, 0, 0), (u32)(&TModelGate_perform));
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d3fbc, 0, 0, 0), (u32)(&TModelGate_perform));
+
+	// TODO: Fix sky in another way
+	int TMario_receiveMessage_enterGate(TMario* mario, THitActor* shineGate, u32 msg) {
+		if(marioEnteringGate != nullptr) return 0;
+		int result = mario->receiveMessage(shineGate, msg);
+		if(result == 1) {
+			marioEnteringGate = mario;
+		}
+		return result;
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801eb28c, 0, 0, 0), TMario_receiveMessage_enterGate);
+
+	TMario* marioControllingLeaf = nullptr;
+	void TLeafBoat_control(void* leafBoat) {
+		int currentMario = getPlayerId(gpMarioOriginal);
+
+		int currentPerspective = getActivePerspective();
+		setActiveMario(currentPerspective);
+
+		if(marioControllingLeaf) {
+			int controllingMario = getPlayerId(marioControllingLeaf);
+			setActiveMario(controllingMario);
+		}
+		
+		control__9TLeafBoatFv(leafBoat);
+
+		if(marioIsOn__11TMapObjBaseCFv(leafBoat) && gpMarioOriginal->mFludd->isEmitting()) {
+			marioControllingLeaf = gpMarioOriginal;
+		} else {
+			marioControllingLeaf = nullptr;
+		}
+
+		setActiveMario(currentMario);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801c5ec8, 0, 0, 0), TLeafBoat_control);
+	SMS_WRITE_32(SMS_PORT_REGION(0x803cca14, 0, 0, 0), (u32)(&TLeafBoat_control));
+
+	TMario* marioControllingBoat = nullptr;
 	
-	*/
+	void TMuddyBoat_control(void* muddyBoat) {
+		int currentMario = getPlayerId(gpMarioOriginal);
+
+		int currentPerspective = getActivePerspective();
+		setActiveMario(currentPerspective);
+
+		if(marioControllingBoat) {
+			int controllingMario = getPlayerId(marioControllingBoat);
+			setActiveMario(controllingMario);
+		}
+
+		control__10TMuddyBoatFv(muddyBoat);
+
+		if(marioIsOn__11TMapObjBaseCFv(muddyBoat) && gpMarioOriginal->mFludd->isEmitting()) {
+			marioControllingBoat = gpMarioOriginal;
+		} else {
+			marioControllingBoat = nullptr;
+		}
+
+		setActiveMario(currentMario);
+
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d166c, 0, 0, 0), (u32)(&TMuddyBoat_control));
+
+
+
+
+
+
 }

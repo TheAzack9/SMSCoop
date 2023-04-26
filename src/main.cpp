@@ -22,6 +22,7 @@
 #include "settings.hxx"
 #include "npcLogic.hxx"
 #include "camera.hxx"
+#include "shine.hxx"
 
 #include <SMS/GC2D/SelectDir.hxx>
 #include <SMS/Player/MarioGamePad.hxx>
@@ -453,12 +454,13 @@ static void initModule() {
     BetterSMS::registerModule(&sModuleInfo);
 
     //// Register callbacks
-    BetterSMS::setDebugMode(true);
+    //BetterSMS::setDebugMode(true);
     BetterSMS::Stage::registerInitCallback("SMSCoop_setupPlayersCoop", SMSCoop::setupPlayers);
     BetterSMS::Stage::registerInitCallback("SMSCoop_cleanupNpcLogic", SMSCoop::resetNpcLogic);
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateCoop", SMSCoop::updateCoop);
+    BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateShine", SMSCoop::updateShineTimer);
     BetterSMS::Stage::registerInitCallback("SMSCoop_initCharacterArchivesCoop", SMSCoop::initCharacterArchives);
-    
+    BetterSMS::Stage::registerInitCallback("SMSCoop_resetShineLogic", SMSCoop::resetShineLogic);
     SMSCoop::setSkinForPlayer(1, "/data/luigi.arc");
 }
 
@@ -470,6 +472,7 @@ static void deinitModule() {
     //BetterSMS::Game::deregisterChangeCallback("cleanupPlayersCoop");
     BetterSMS::Stage::deregisterInitCallback("SMSCoop_cleanupNpcLogic");
     BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateCoop");
+    BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateShine");
     BetterSMS::Stage::deregisterInitCallback("SMSCoop_initCharacterArchivesCoop");
 }
 

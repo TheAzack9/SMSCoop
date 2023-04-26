@@ -9,7 +9,7 @@ namespace SMSCoop {
 
     
         SplitScreenSetting(const char *name) : IntSetting(name, &mSplitScreenValue), mSplitScreenValue(VERTICAL) {
-            mValueRange = {0, 2, 1};
+            mValueRange = {1, 2, 1};
         }
         ~SplitScreenSetting() override {}
 

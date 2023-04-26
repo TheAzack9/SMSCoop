@@ -13,13 +13,12 @@
 #include <SMS/Manager/FlagManager.hxx>
 
 #include <SMS/GC2D/Talk2D2.hxx>
-
-#include <BetterSMS/player.hxx>
-#include <BetterSMS/stage.hxx>
+#include <raw_fn.hxx>
 
 #include "characters.hxx"
 #include "camera.hxx"
 #include "splitscreen.hxx"
+#include "shine.hxx"
 
 namespace SMSCoop {
 	typedef struct {
@@ -42,6 +41,7 @@ namespace SMSCoop {
 	u32 jetcoasterDemoCallbackCamera = 0;
 	
 	SpawnData spawnData[2];
+	int gessoTimer[2];
 
 
 	#define DYNAMIC_MARIO_LOADING true
@@ -57,9 +57,9 @@ namespace SMSCoop {
 
 	int getClosestMarioId(TVec3f* position) {
 		int closestId = 0;
-		float closest = 99999.0f;
+		float closest = 9999800001.0f;
 		for(int i = 0; i < loadedMarios; ++i) {
-			float dist = PSVECDistance((Vec*)position, (Vec*)&marios[i]->mTranslation);
+			float dist = PSVECSquareDistance((Vec*)position, (Vec*)&marios[i]->mTranslation);
 			if(closest > dist ) {
 				closestId = i;
 				closest = dist;
@@ -72,10 +72,71 @@ namespace SMSCoop {
 	// Note: Cannot be set every other frame because game logic depends on one static global instance so swapping breaks the game.
 	// A lot of how mario works is connected to the global mario and must be manually changed to work with multiple players
 	
+int buttonsPressedWhileHeld[2];
+int prevButtons[2];
+float prevStickAngle[2];
+
+
+	TMario* IsHeld(TMario* mario) {
+		for(int i = 0; i < loadedMarios; ++i) {
+			if(marios[i]->mHeldObject == mario) return marios[i];
+		}
+		return 0;
+	}
+
+	// Feature: Escape when held
+	// Description: Keeps track of button presses while player is held, if it is above 30 then release the player
+	void SimulateEscapeHeld(TMario* mario) {
+		int playerIdx = mario == marios[0] ? 0 : 1;
+		TMario* heldBy = IsHeld(mario);
+
+		float lAnalogX = gpApplication.mGamePads[playerIdx]->mControlStick.mStickX;
+		float lAnalogY = gpApplication.mGamePads[playerIdx]->mControlStick.mStickY;
+		float angle = atan2f(lAnalogY, lAnalogX) + M_PI;
+
+		// PI/2 - 0 = 3/2PI, real diff is PI/2
+		float angleDiff = fabs(prevStickAngle[playerIdx] - angle);
+		angleDiff = atan2f(sinf(angleDiff), cosf(angleDiff));
+
+		if(
+			heldBy != 0 && 
+			(
+				(prevButtons[playerIdx] != gpApplication.mGamePads[playerIdx]->mFrameMeaning && gpApplication.mGamePads[playerIdx]->mFrameMeaning != 0) 
+				// If stick moved more than a 12th of a circle since last frame
+				|| angleDiff > 0.6
+			)
+		) {
+			buttonsPressedWhileHeld[playerIdx]++;
+			TVec3f temp;
+			temp.x = 0.5f;
+			temp.y = 0.5f;
+			temp.z = 0.5f;
+		
+			mario->startVoice(0x788f);
+			SMS_EasyEmitParticle_2(8, &(mario->mTranslation), mario, &temp);
+			SMS_EasyEmitParticle_2(9, &(mario->mTranslation), mario, &temp);
+		}
+		if(heldBy == 0) {
+			buttonsPressedWhileHeld[playerIdx] = 0;
+		}
+
+
+		prevButtons[playerIdx] = gpApplication.mGamePads[playerIdx]->mFrameMeaning;
+		prevStickAngle[playerIdx] = angle;
+
+		if(buttonsPressedWhileHeld[playerIdx] > 15) {
+			heldBy->dropObject();
+		}
+	}
+
+
+
 static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
+static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 	void setActiveMario(int id) {
 		TMario* mario = marios[id];
 		gpMarioOriginal = mario;
+		*gpMarioForCallBackCoop = mario;
 		*gpMarioOriginalCoop = mario;
 		SMS_SetMarioAccessParams__Fv();
 	}
@@ -137,11 +198,8 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 				if(i != 0) {
 					mario = new TMario();
 				}
-    auto *currentHeap = JKRHeap::sCurrentHeap;
-		OSReport("Free heap before load mario %X\n", currentHeap->getTotalFreeSize());
-					mario->load(*memoryStream);
-					mario_viewObjPtrList->mViewObjList.push_back(mario);
-		OSReport("Free heap after load mario %X\n", currentHeap->getTotalFreeSize());
+				mario->load(*memoryStream);
+				mario_viewObjPtrList->mViewObjList.push_back(mario);
 			}
 
 			//loadedMarios = 1;
@@ -158,62 +216,6 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a0734, 0, 0, 0), JDrama_TNameRefGen_load_Mario);
 	#endif
 
-		void initModel(TMario* mario) {
-    auto *currentHeap = JKRHeap::sCurrentHeap;
-		OSReport("Free heap size before initModel%X\n", currentHeap->getTotalFreeSize());
-		mario->initModel();
-		OSReport("Free heap size after initModel %X\n", currentHeap->getTotalFreeSize());
-	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x802767c8, 0, 0, 0), initModel);
-
-
-	void initWaterEmitShit(void* gun) {
-		__ct__14TWaterEmitInfoFPCc(gun);
-    auto *currentHeap = JKRHeap::sCurrentHeap;
-		OSReport("Free heap size a bit after start %X\n", currentHeap->getTotalFreeSize());
-	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x8027677c, 0, 0, 0), initWaterEmitShit);
-	
-	void initWatergun(TWaterGun* gun) {
-    auto *currentHeap = JKRHeap::sCurrentHeap;
-		OSReport("Free heap before watergunInit %X\n", currentHeap->getTotalFreeSize());
-		gun->init();
-		OSReport("Free heap after watergunInit %X\n", currentHeap->getTotalFreeSize());
-	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x8027681c, 0, 0, 0), initWatergun);
-	
-	bool isFirstInit = true;
-	#define initValues__6TMarioFv         ((int (*)(...))0x802766B0)
-	void customInitTest(TMario* mario) {
-		
-		if(true || marios[0] == mario) {
-    auto *currentHeap = JKRHeap::sCurrentHeap;
-		OSReport("Free heap size before %X\n", currentHeap->getTotalFreeSize());
-			initValues__6TMarioFv(mario);
-		OSReport("Free heap after %X\n", currentHeap->getTotalFreeSize());
-		} else {
-			//TMarioControllerWork* work = (TMarioControllerWork*)__nwa__FUl(0x24);
-			//mario->mControllerWork = work;
-
-			//TMarioCap* cap = (TMarioCap*)__nwa__FUl(0x38);
-			//__ct__9TMarioCapFP6TMario(cap);
-			//mario->mCap = cap;
-
-			//TWaterGun* waterGun = new TWaterGun(mario);
-			//mario->mFludd = waterGun;
-			//waterGun->init();
-			//waterGun->setAmountToRate(mario->mInitialWater / 100.0f);
-
-			//TYoshi* yoshi = new TYoshi();
-			//mario->mYoshi = yoshi;
-			//yoshi->init(mario);
-
-			//mario->initModel();
-		}
-
-		isFirstInit = false;
-	}
-	SMS_WRITE_32(SMS_PORT_REGION(0x803dd720, 0, 0, 0), (u32)(&customInitTest));
 
 	// Description: Override the controller update to ensure that correct mario is checked.
 	// Note: Certain things like the y-cam is for some reason tied directly to the controller update.
@@ -241,12 +243,23 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 		u8 playerId = getPlayerId(mario);
 		setActiveMario(playerId);
 		setCamera(playerId);
+
 		perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
+
+		SimulateEscapeHeld(mario);
 		setActiveMario(0);
 		setCamera(0);
 	}
 	// Override vtable
 	SMS_WRITE_32(SMS_PORT_REGION(0x803dd680, 0, 0, 0), (u32)(&TMario_perform_coop));
+	
+	s16 TMario_getAttackAngle(TMario* mario, THitActor* hitActor) {
+		return mario->mAngle.y;
+		//if(!hitActor) return 0;
+		//return mario->getAttackAngle(hitActor);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802412d0, 0, 0, 0), TMario_getAttackAngle);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028494c, 0, 0, 0), TMario_getAttackAngle);
 
 	bool isYoshiMounted(TYoshi* yoshi) {
 		return yoshi->mState == TYoshi::MOUNTED;
@@ -275,7 +288,17 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	void updateCoop(TMarDirector* marDirector) {
   //  auto *currentHeap = JKRHeap::sCurrentHeap;
 		//OSReport("Free heap size %X\n", currentHeap->getTotalFreeSize());
+
+		
+		
+		for(int i = 0; i < loadedMarios; ++i) {
+			if(gessoTimer[i] > 0) {
+				gessoTimer[i]--;
+			}
+		}
+
 		if(loadedMarios > 1) {
+
 			
 			int id = getActivePerspective();
 			setWaterColorForMario(id);
@@ -290,14 +313,8 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 				TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 				director->mGamePads[i]->mState.mIsTaling = director->mGamePads[0]->mState.mIsTaling;
 				
-			
 			}
-			// TODO: Add to TMarDirector=
-			/*char queuedCutscenes = *(char*)((u32)marDirector + 0x24c);
-			char activeCutsceneCount = *(char*)((u32)marDirector + 0x24d);
-			if(IsMechabowser) {
-				*(char*)((u32)marDirector + 0x24d) = *(char*)((u32)marDirector + 0x24c);
-			}*/
+
 			// HACK: Swap the current yoshi every update in order to let one mario ride both yoshis
 			// This is because collision is bound to one specific yoshi per mario
 			// so if we don't do this then one mario can only ride one of the loadedyoshi
@@ -342,17 +359,18 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801bc730, 0, 0, 0), TYoshi_appearFromEgg_override);
 
 	// Description: set correct camera and player before player update to make player move after correct camera
-	#define playerControl__6TMarioFPQ26JDrama9TGraphics         ((int (*)(...))0x8024DE38)
-	void TMario_playerControl(TMario* mario, JDrama::TGraphics* graphics) {
-		u8 playerId = getPlayerId(mario);
-		setActiveMario(playerId);
-		setCamera(playerId);
-		playerControl__6TMarioFPQ26JDrama9TGraphics(mario, graphics);
-		setActiveMario(0);
-		setCamera(0);
-	}
-	// Override vtable
-	SMS_WRITE_32(SMS_PORT_REGION(0x803dd72c, 0, 0, 0), (u32)(&TMario_playerControl));
+	//#define playerControl__6TMarioFPQ26JDrama9TGraphics         ((int (*)(...))0x8024DE38)
+	//void TMario_playerControl(TMario* mario, JDrama::TGraphics* graphics) {
+	//	u8 currentPlayer = getPlayerId(mario);
+	//	u8 playerId = getPlayerId(mario);
+	//	setActiveMario(playerId);
+	//	setCamera(playerId);
+	//	playerControl__6TMarioFPQ26JDrama9TGraphics(mario, graphics);
+	//	setActiveMario(currentPlayer);
+	//	setCamera(currentPlayer);
+	//}
+	//// Override vtable
+	//SMS_WRITE_32(SMS_PORT_REGION(0x803dd72c, 0, 0, 0), (u32)(&TMario_playerControl));
 
 
 	static TMarioGamePad* GamePads = (TMarioGamePad*)0x8057738c;
@@ -393,6 +411,7 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 			}
 			playerPreviousWarpId[i] = 0;
 		}
+
 		setLoading(true);
 		loadedMarios = 0;
 		hasTriggeredMechaBowserCutscene = false;
@@ -401,13 +420,15 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a681c, 0, 0, 0), cleanupPlayersCoop);
 
-
 	// Description: Sets initial fields on load for player and makes player active. 
 	// Note: This makes player spawn at level exits
 	// TODO: Fix wrong level exit animation
 	void SetMario(TMarDirector* director) {
+		bool bootState = TFlagManager::smInstance->getFlag(0x30006);
 		for (int i = loadedMarios-1; i >= 0; i--) {
+			TFlagManager::smInstance->setFlag(0x30006, bootState);
 			setActiveMario(i);
+			setCamera(i);
 			director->setMario();
 		
 	#ifdef DYNAMIC_MARIO_LOADING
@@ -442,6 +463,7 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 			spawnData[i].shouldRespawn = false;
 			spawnData[i].levelIsRestarting = false;
 		}
+
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802983f8, 0, 0, 0), SetMario);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80298428, 0, 0, 0), SetMario);
@@ -459,6 +481,10 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	// Description: Fix for luigi shadow. Basically there is a check whether shadow has been rendered This removes that check
 	// Optimization: Check for shadow individually between players
 	SMS_WRITE_32(SMS_PORT_REGION(0x80231834, 0, 0, 0), 0x60000000);
+
+	//SMS_WRITE_32(SMS_PORT_REGION(0x80276bb8, 0, 0, 0), 0x60000000);
+
+	
 
 	// Description: Removes hit actor from another hit actor's collision array
 	void RemoveObjectFromColArray(THitActor* actor, THitActor* col){
@@ -558,11 +584,16 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80299af8, 0, 0, 0), OnCheckActorsHit);
 
+	
+
 		// Description: Collision check run for TMario
 	void TOBjHitCheck_suffererIsInAttackArea(void* tObjHitCheck, THitActor* hitActor, THitActor* mario){
-		
-		int cm = getClosestMarioId(&hitActor->mTranslation);
-		suffererIsInAttackArea__12TObjHitCheckFP9THitActorP9THitActor(tObjHitCheck, hitActor, marios[cm]);
+		for(int i = 0; i < getPlayerCount(); ++i) {
+			TMario* zMario = marios[i];
+			if(checkDistance__FRCQ29JGeometry8TVec3_f(hitActor->mAttackRadius, hitActor->mAttackHeight, zMario->mReceiveRadius, zMario->mReceiveHeight, hitActor->mTranslation, zMario->mTranslation)) {
+				suffererIsInAttackArea__12TObjHitCheckFP9THitActorP9THitActor(tObjHitCheck, hitActor, zMario);
+			}
+		}
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8021bc00, 0, 0, 0), TOBjHitCheck_suffererIsInAttackArea);
 
@@ -678,6 +709,10 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	// Description: Override TCubeManagerBase_getInCubeNo to render if mario that is currently rendered is inside fastCubes (used for fast culling checks)
 	// Note: This will cause objects that are culled for only one player to have their animations run in 30 fps since it only updates on one screen (this looks wonky) Very noticable in Sirena when player is on different floor
 	u32 TCubeManagerBase_getInCubeNo_Perspective_Fix(TCubeManagerBase* cubeManagerBase, Vec& marioPos) {
+		if(gpMarDirector->mAreaID == TGameSequence::Area::AREA_MAREBOSS) {
+			return cubeManagerBase->getInCubeNo((Vec&)marios[0]->mTranslation);
+		}
+
 		int i = getActivePerspective();
 		TMario* mario = marios[i];
 		return cubeManagerBase->getInCubeNo((Vec&)mario->mTranslation);
@@ -687,9 +722,13 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8024d488, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8024d49c, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80195490, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix);
+
 	// Description: Override TCubeManagerBase_getInCubeNo to render if mario that is currently rendered is inside fastCubes (used for fast culling checks)
 	// Note: This will cause objects that are culled for only one player to have their animations run in 30 fps since it only updates on one screen (this looks wonky) Very noticable in Sirena when player is on different floor
 	u32 TCubeManagerBase_getInCubeNo_Perspective_Fix2(TCubeManagerBase* cubeManagerArea, Vec& objPos) {
+		if(gpMarDirector->mAreaID == TGameSequence::Area::AREA_MAREBOSS) {
+			return isInAreaCube__16TCubeManagerAreaCFRC3Vec(cubeManagerArea, objPos);
+		}
 		for(int i = 0; i < loadedMarios; ++i) {
 			TMario* mario = marios[i];
 		
@@ -828,6 +867,10 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 				if(PSVECDistance((Vec*)&npc->mTranslation, (Vec*)&mario->mTranslation) < 500) {
 					npc->mStateFlags.asU32 = npc->mStateFlags.asU32 & 0xfffffffb;
 				}
+
+				if(isShineGot()) {
+					npc->mStateFlags.asU32 |= 4;
+				}
 			}
 		}
 	}
@@ -900,7 +943,7 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 			talk2d->gamepad = director->mGamePads[i];
 			setActiveMario(i);
 			setCamera(i);
-			checkControler__8TTalk2D2Fv(talk2d);
+			checkBoardControler__8TTalk2D2Fv(talk2d);
 		}
 		setActiveMario(0);
 		setCamera(0);
@@ -922,6 +965,10 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 
 
 	TGCConsole2* consoles[2];
+	
+	TGCConsole2* getConsoleForPlayer(int id) {
+		return consoles[1 - id];
+	}
 
 	// Create all instances of TGCConsole2
 	void TGCConsole2_constructor(TGCConsole2* console, char* param_1) {
@@ -1032,14 +1079,15 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 
 	
 	#define MarioFlagId_Lives 0x20001
-	
+
 	void loserExecOverride(TMario* mario) {
+		if(isShineGot()) return;
 		int lives = TFlagManager::smInstance->getFlag(MarioFlagId_Lives);
 		if(lives <= 0) {
 			for(int i = 0; i < loadedMarios; ++i) {
 				marios[i]->loserExec();
 			}
-			TFlagManager::smInstance->setFlag(MarioFlagId_Lives, 3);
+			TFlagManager::smInstance->setFlag(MarioFlagId_Lives, 4);
 
 		}
 
@@ -1092,4 +1140,189 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 	
 	// Stop game overs
 	SMS_WRITE_32(SMS_PORT_REGION(0x8024fb6c, 0, 0, 0), 0x60000000);
+
+	// Remove loosing lives
+	SMS_WRITE_32(SMS_PORT_REGION(0x80298814, 0, 0, 0), 0x60000000);
+	
+
+
+	int TMario_CanTake_Override(TMario* mario, THitActor* object) {
+		// Check if player is already holding the object
+		// This is to ensure game doesn't crash when e.g SM and mario tries to drag blooper at the same time
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+
+			if(marios[i]->mHeldObject == object) return 0;
+		}
+
+
+		return mario->canTake(object);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281604, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281b44, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281d94, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281e78, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281f88, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802820f0, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802821f8, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80282238, 0, 0, 0), TMario_CanTake_Override);
+
+	// Set diving helm when set from sunscript
+	void TMario_setDivHelm(TMario* mario) {
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+			marios[i]->setDivHelm();
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028d21c, 0, 0, 0), TMario_setDivHelm);
+
+	
+	// Set nozzle when set from sunscript
+	void TMario_changeNozzle(TWaterGun* watergun, TWaterGun::TNozzleType nozzleType, bool param_2) {
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+			marios[i]->mFludd->changeNozzle(nozzleType, param_2);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028d230, 0, 0, 0), TMario_changeNozzle);
+
+	
+	
+	// Set sunglass when set from sunscript
+	void TMario_wearGlass(TMario* mario) {
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+			marios[i]->wearGlass();
+			
+			bool shineFlag = TFlagManager::smInstance->getShineFlag('w');
+			if(shineFlag) {
+				*(u32*)(&marios[i]->mAttributes) |= 0x100000;
+			}
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028adf0, 0, 0, 0), TMario_wearGlass);
+
+	
+	// Set sunglass when set from sunscript
+	void TMario_takeOffGlass(TMario* mario) {
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+			marios[i]->takeOffGlass();
+			bool shineFlag = TFlagManager::smInstance->getShineFlag('w');
+			if(shineFlag) {
+				*(u32*)(&marios[i]->mAttributes) &= 0xffefffff;
+			}
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028ae2c, 0, 0, 0), TMario_takeOffGlass);
+	
+	int previousFluddNozzle[2];
+	void TFlagManager_setFlag_fluddNozzle(TFlagManager* flagManger, u32 flagId, s32 flagValue) {
+		
+		for (int i = 0; i < loadedMarios; i++){
+			int nozzle = marios[i]->mFludd->mSecondNozzle;
+			if(nozzle == 3) nozzle = 4;
+			previousFluddNozzle[i] = nozzle;
+		}
+
+		flagManger->setFlag(flagId, flagValue);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80297990, 0, 0, 0), TFlagManager_setFlag_fluddNozzle);
+	
+	s32 TFlagManager_getFlag_fluddNozzle(TFlagManager* flagManger, u32 flagId) {
+		int id = getPlayerId(gpMarioOriginal);
+		return previousFluddNozzle[id];
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80298b38, 0, 0, 0), TFlagManager_getFlag_fluddNozzle);
+	
+	
+	void TItem_touchPlayer(TItem* item, THitActor* mario) {
+		if(item->mKeyCode != 53611) {
+			item->taken(mario);
+		} else if(!((TMario*)mario)->mAttributes.mHasFludd) {
+			item->taken(mario);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801bf328, 0, 0, 0), TItem_touchPlayer);
+	
+
+	// TODO: Reset between scene transitions?
+	MActor* gesso0[2];
+	MActor* gesso1[2];
+	MActor* gesso2[2];
+	void TItem_touchPlayer_TSurfGessoObj(TItem* item, TMario* mario) {
+		int mId = getPlayerId(mario);
+		if(gessoTimer[mId] <= 0) {
+			
+			void* gpMapObjManager = *(void**)0x8040df08;
+			*(MActor**)((int)gpMapObjManager + 0x9c) = gesso0[mId];
+			*(MActor**)((int)gpMapObjManager + 0xa0) = gesso1[mId];
+			*(MActor**)((int)gpMapObjManager + 0xa4) = gesso2[mId];
+
+			mario->getGesso(item);
+
+
+			gessoTimer[mId] = 60 * 5; // about 5 sec
+		}
+
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803ce8a8, 0, 0, 0), (u32)(&TItem_touchPlayer_TSurfGessoObj));
+
+
+	MActor* SMS_MakeMActorFromSDLModelData_makeGesso0(void* sdlModelData, MActorAnmData* anmData, u32 param_3) {
+		for(int i = 0; i < 2; ++i) {
+			MActor* gesso = (MActor*)SMS_MakeMActorFromSDLModelData__FP12SDLModelDataP13MActorAnmDataUl(sdlModelData, anmData, param_3);
+			gesso0[i] = gesso;
+		}
+		return gesso0[0];
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801b7544, 0, 0, 0), SMS_MakeMActorFromSDLModelData_makeGesso0);
+
+	void TMapObjBase_initPacketMatColor_gesso0(TMapObjBase* mapObj, J3DModel* model, _GXTevRegID regId, _GXColorS10* colors10) {
+		for(int i = 0; i < 2; ++i) {
+			initPacketMatColor__11TMapObjBaseFP8J3DModel11_GXTevRegIDPC11_GXColorS10(*((u32*)gesso0[i] + 1), model, regId, colors10);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801b7594, 0, 0, 0), TMapObjBase_initPacketMatColor_gesso0);
+
+	
+	MActor* SMS_MakeMActorFromSDLModelData_makeGesso1(void* sdlModelData, MActorAnmData* anmData, u32 param_3) {
+		for(int i = 0; i < 2; ++i) {
+			MActor* gesso = (MActor*)SMS_MakeMActorFromSDLModelData__FP12SDLModelDataP13MActorAnmDataUl(sdlModelData, anmData, param_3);
+			gesso1[i] = gesso;
+		}
+		return gesso1[0];
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801b7560, 0, 0, 0), SMS_MakeMActorFromSDLModelData_makeGesso1);
+
+	void TMapObjBase_initPacketMatColor_gesso1(TMapObjBase* mapObj, J3DModel* model, _GXTevRegID regId, _GXColorS10* colors10) {
+		for(int i = 0; i < 2; ++i) {
+			initPacketMatColor__11TMapObjBaseFP8J3DModel11_GXTevRegIDPC11_GXColorS10(*((u32*)gesso1[i] + 1), model, regId, colors10);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801b75a8, 0, 0, 0), TMapObjBase_initPacketMatColor_gesso1);
+
+	
+	
+	MActor* SMS_MakeMActorFromSDLModelData_makeGesso2(void* sdlModelData, MActorAnmData* anmData, u32 param_3) {
+		for(int i = 0; i < 2; ++i) {
+			MActor* gesso = (MActor*)SMS_MakeMActorFromSDLModelData__FP12SDLModelDataP13MActorAnmDataUl(sdlModelData, anmData, param_3);
+			gesso2[i] = gesso;
+		}
+		return gesso2[0];
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801b757c, 0, 0, 0), SMS_MakeMActorFromSDLModelData_makeGesso2);
+
+	void TMapObjBase_initPacketMatColor_gesso2(TMapObjBase* mapObj, J3DModel* model, _GXTevRegID regId, _GXColorS10* colors10) {
+		for(int i = 0; i < 2; ++i) {
+			initPacketMatColor__11TMapObjBaseFP8J3DModel11_GXTevRegIDPC11_GXColorS10(*((u32*)gesso2[i] + 1), model, regId, colors10);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801b75bc, 0, 0, 0), TMapObjBase_initPacketMatColor_gesso2);
 }
+ 

@@ -9,6 +9,7 @@ namespace SMSCoop {
 	void setActiveMario(int id);
 	TMario* getMarioById(int id);
 	int getClosestMarioId(TVec3f* position);
+	TGCConsole2* getConsoleForPlayer(int id);
 	u8 getPlayerId(TMario* mario);
 	void updateCoop(TMarDirector* mardirector);
 	bool cleanupPlayersCoop(TApplication* application);

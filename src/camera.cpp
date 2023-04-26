@@ -9,6 +9,8 @@
 #include <SMS/Camera/PolarSubCamera.hxx>
 #include <SMS/System/Application.hxx>
 #include <SMS/raw_fn.hxx>
+#include <SMS/Camera/CubeManagerBase.hxx>
+#include <SMS/Camera/CameraMarioData.hxx>
 #include <memory.hxx>
 #include <sdk.h>
 
@@ -18,11 +20,11 @@
 namespace SMSCoop {
 	CPolarSubCamera* cameras[2];
 
-	static u32 c1[4] = { 0, 0, 0, 0 }; // odd camera infor for -0x7110 0f sda
+	static TCameraMarioData* c1[4] = { 0, 0, 0, 0 }; // odd camera infor for -0x7110 0f sda
 	static u32 c2[4] = { 0, 0, 0, 0 }; // odd camera infor for -0x7108 0f sda
 
 	static CPolarSubCamera** gpCameraCoop = (CPolarSubCamera**)0x8040d0a8;
-	static CPolarSubCamera** gpCameraMario = (CPolarSubCamera**)0x8040D0B0;
+	static TCameraMarioData** gpCameraMario = (TCameraMarioData**)0x8040D0B0;
 	static CPolarSubCamera** gpCameraShake = (CPolarSubCamera**)0x8040D0B8;
 
 	// Description: Sets the current global camera instance
@@ -30,8 +32,8 @@ namespace SMSCoop {
 		*gpCameraCoop = cameras[i];
 		// This is mario position lmao... 0x80025690
 		// This might not be necessary
-		//*gpCameraMario = (CPolarSubCamera*)c1[i];
-		//*gpCameraShake = (CPolarSubCamera*)c2[i];
+		*gpCameraMario = c1[i];
+		*gpCameraShake = (CPolarSubCamera*)c2[i];
 	}
 
 	CPolarSubCamera* getCameraById(int i) {
@@ -70,11 +72,11 @@ namespace SMSCoop {
 			//*gpMarioOriginal = (TMario*)marios[i];
 			setActiveMario(i);
 			//setCamera(i);
-			SDAstoreword(-0x7110, c1[i]);
+			*gpCameraMario = c1[i];
 			SDAstoreword(-0x7108, c2[i]);
 			load__Q26JDrama10TPlacementFR20JSUMemoryInputStream(cameras[i], unk);
 		}
-		SDAstoreword(-0x7110, c1[0]);
+		*gpCameraMario = c1[0];
 		SDAstoreword(-0x7108, c2[0]);
 		setActiveMario(0);
 	}
@@ -83,6 +85,7 @@ namespace SMSCoop {
 	// Description: Updates all cameras and assigns correct controller to each camera.
 	// Note: The active perspective is set as the last one. This is to make the game use that camera for rendering the scene since that is the transform last copied to graphics
 	// TODO: Cleanup
+	// TODO: Fix particles being clipped when outside viewport
 	void performCamerasOverhaul(CPolarSubCamera* camera, u32 param_1, JDrama::TGraphics* graphics) {
 	
 		TApplication* app = &gpApplication;
@@ -101,8 +104,9 @@ namespace SMSCoop {
 		setCamera(i);
 		((u32*)pCamera)[0x120 / 4] = (u32)app->mGamePads[i];
 		perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
+
 		// I saw i missed this in the first beta version and it is what fixed reflection. TODO: Research proper way to fix reflection
-		//setCamera(0); 
+		setCamera(0); 
 		setActiveMario(0);
 	} 
 
@@ -111,11 +115,11 @@ namespace SMSCoop {
 	// TODO: Cleanup
 	void loadAfterCameraOverhaul(CPolarSubCamera* camera) {
 		for (int i = 0; i < getPlayerCount(); i++) {
-			*gpCameraMario = (CPolarSubCamera*)c1[i];
+			*gpCameraMario = c1[i];
 			*gpCameraShake = (CPolarSubCamera*)c2[i];
 			loadAfter__15CPolarSubCameraFv(cameras[i]);
 		}
-		*gpCameraMario = (CPolarSubCamera*)c1[0];
+		*gpCameraMario = c1[0];
 		*gpCameraShake = (CPolarSubCamera*)c2[0];
 	
 		CPolarSubCamera* originalCam = cameras[0];
@@ -137,16 +141,17 @@ namespace SMSCoop {
 		cameras[0] = camera;
 		__ct__15CPolarSubCameraFPCc(camera, unk);
 		u32* bob = (u32*)(0x804141c0 - 0x7110);
-		c1[0] = (u32)bob[0];
+		c1[0] = *gpCameraMario;
 		c2[0] = (u32)bob[2];
 		for (int i = 1; i < getPlayerCount(); i++) {
 			// memory leak?
 			cameras[i] = (CPolarSubCamera*)__nw__FUl(1020);
 			__ct__15CPolarSubCameraFPCc(cameras[i], unk);
 			u32* bob = (u32*)(0x804141c0 - 0x7110);
-			c1[i] = (u32)bob[0];
+			c1[i] = *gpCameraMario;
 			c2[i] = (u32)bob[2];
 		}
+		*gpCameraMario = c1[0];
 		// returning different cameras does nothing
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029d78c, 0, 0, 0), makeCameras);
@@ -156,11 +161,11 @@ namespace SMSCoop {
 	// TODO: Cleanup
 	void setNoticeInfoCameras(CPolarSubCamera* camera) {
 		for (int i = 0; i < getPlayerCount(); i++) {
-			SDAstoreword(-0x7110, c1[i]);
+			*gpCameraMario = c1[i];
 			SDAstoreword(-0x7108, c2[i]);
 			cameras[i]->setNoticeInfo();
 		}
-		SDAstoreword(-0x7110, c1[0]);
+		*gpCameraMario = c1[0];
 		SDAstoreword(-0x7108, c2[0]);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802b8f10, 0, 0, 0), setNoticeInfoCameras);
@@ -231,4 +236,20 @@ namespace SMSCoop {
 
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80305418, 0, 0, 0), calculateSoundDistance);
+
+
+	
+	// Description: Goes through all audio listener and finds the closest one to the audio source
+	int SMS_GetMonteVillageAreaInMario_camera() {
+		int result = SMS_GetMonteVillageAreaInMario__Fv();
+		if(result == 4 || result == 1) return result;
+
+		u32 isInCube = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
+		if(isInCube == 1) return 0;
+		if(isInCube == 0) return 2;
+		return 3;
+
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8002046c, 0, 0, 0), SMS_GetMonteVillageAreaInMario_camera);
+	
 }

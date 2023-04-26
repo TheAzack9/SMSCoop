@@ -32,14 +32,15 @@ namespace SMSCoop {
     static u8* MapArea = (u8*)0x803e970e;
 
     bool g_isLoading = false;
+    
+    bool isVerticalSplit() {
+        return gSplitScreenSetting.getInt() == SplitScreenSetting::VERTICAL;
+    }
 
     void setLoading(bool isLoading) {
         g_isLoading = isLoading; 
     }
 
-    bool isVerticalSplit() {
-        return gSplitScreenSetting.getInt() == SplitScreenSetting::VERTICAL;
-    }
 
 
     // Description: Checks whether to enable split screen or not
@@ -169,6 +170,7 @@ namespace SMSCoop {
     static void processGXInvalidateTexAll() { 
         if (isSplitscreen()) {
             ACTIVE_PERSPECTIVE ^= 1;
+            setCamera(0);
     #ifndef EXPERIMENTAL_RENDERING
             waitForRetrace__Q26JDrama6TVideoFUs(gpApplication.mDisplay->mVideo, gpApplication.mDisplay->mRetraceCount);
             hasRetraced = true;
@@ -334,4 +336,35 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x802a65fc, 0, 0, 0), SMSGetGameRenderHeight2);
     SMS_PATCH_BL(SMS_PORT_REGION(0x802a6520, 0, 0, 0), SMSGetGameRenderHeight2);
     SMS_PATCH_BL(SMS_PORT_REGION(0x802a64b8, 0, 0, 0), SMSGetGameRenderHeight2);
+
+    void setHxCameraViewport() {
+        if(!isSplitscreen()) {
+            *((f32*)0x804126a4) = 640.0;
+            *((f32*)0x80412658) = 480.0;
+        }
+        else if(isVerticalSplit()) {
+            *((f32*)0x804126a4) = 320.0;
+            *((f32*)0x80412658) = 480.0;
+        }
+        else {
+            *((f32*)0x804126a4) = 640.0;
+            *((f32*)0x80412658) = 240.0;
+        }
+    }
+
+    static void HXCameraInitOverride() {
+        setHxCameraViewport();
+        Hx_CameraInit();
+        *((f32*)0x804126a4) = 640.0;
+        *((f32*)0x80412658) = 480.0;
+
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80181428, 0, 0, 0), HXCameraInitOverride);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801817e8, 0, 0, 0), HXCameraInitOverride);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8017e660, 0, 0, 0), HXCameraInitOverride);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8017dfd4, 0, 0, 0), HXCameraInitOverride);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8017e874, 0, 0, 0), HXCameraInitOverride);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8017f358, 0, 0, 0), HXCameraInitOverride);
+    
+    
 }

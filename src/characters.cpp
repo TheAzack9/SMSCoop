@@ -18,15 +18,12 @@
 #include <SMS/System/Application.hxx>
 #include <SMS/assert.h>
 #include <SMS/macros.h>
-
-#include <BetterSMS/module.hxx>
-#include <BetterSMS/player.hxx>
-#include <BetterSMS/stage.hxx>
-#include <BetterSMS/libs/global_vector.hxx>
+#include <sdk.h>
+#include <string.h>
 
 namespace SMSCoop {
 
-    static TGlobalVector<void *> sCharacterArcs;
+    static void* sCharacterArcs[2];
     static char const* skins[2] = {"/data/mario.arc", "/data/mario.arc"};
     void* arcBufMario;
 
@@ -42,10 +39,10 @@ namespace SMSCoop {
     }
 
     void setActiveMarioArchive(int id) {
-        if(id >= sCharacterArcs.size() || id < 0) return;
+        if(id >= 2 || id < 0) return;
         JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
         archive->unmountFixed();
-        arcBufMario = sCharacterArcs.at(id);
+        arcBufMario = sCharacterArcs[id];
         archive->mountFixed(arcBufMario, UNK_0);
     }
 
@@ -55,14 +52,12 @@ namespace SMSCoop {
 
     // TODO: This should be based on a configurable list that is exposed in the module
     void initCharacterArchives(TMarDirector *director) {
-        sCharacterArcs.clear();
-        sCharacterArcs.reserve(2);
-
         void* marioArchive = SMSLoadArchive("/data/mario.arc", nullptr, 0, nullptr);
         for(int i = 0; i < 2; ++i) {
+            sCharacterArcs[i] = nullptr;
             if(strcmp(skins[i], "/data/mario.arc") == 0) {
                 OSReport("Loading default mario skin %s\n", skins[i]);
-                sCharacterArcs.push_back(marioArchive);
+                sCharacterArcs[i]= marioArchive;
                 continue;
             }
             OSReport("Loading skin %s\n", skins[i]);
@@ -70,15 +65,15 @@ namespace SMSCoop {
             // Load skins (if exists)
             void* playerArchive = SMSLoadArchive(skins[i], nullptr, 0, nullptr);
             if(playerArchive != 0) {
-                sCharacterArcs.push_back(playerArchive);
+                sCharacterArcs[i]= playerArchive;
             } else {
-                sCharacterArcs.push_back(marioArchive);
+                sCharacterArcs[i]= marioArchive;
             }
         }
 
     
 
-        arcBufMario = sCharacterArcs.at(0);
+        arcBufMario = sCharacterArcs[0];
 
         JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
         if (!archive)
