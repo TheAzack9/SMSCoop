@@ -429,12 +429,14 @@ const u8 gSaveIcon[] = {
 Settings::SettingsGroup gSettingsGroup(1, 0, Settings::Priority::GAME);
 
 SMSCoop::SplitScreenSetting gSplitScreenSetting("Splitscreen");
+SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting("Max shine grab distance");
 
 static BetterSMS::ModuleInfo sModuleInfo{"Mario Sunshine Coop", 1, 0, &gSettingsGroup};
 
 static void initModule() {
     OSReport("Initializing Coop Module...\n");
     gSettingsGroup.addSetting(&gSplitScreenSetting);
+    gSettingsGroup.addSetting(&gShineGrabDistanceSetting);
 
     {
         auto &saveInfo        = gSettingsGroup.getSaveInfo();

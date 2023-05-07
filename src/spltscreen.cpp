@@ -15,6 +15,7 @@
 #include "player.hxx"
 #include "camera.hxx"
 #include "settings.hxx"
+#include "npcLogic.hxx"
 
 //#define EXPERIMENTAL_RENDERING
 
@@ -170,7 +171,7 @@ namespace SMSCoop {
     static void processGXInvalidateTexAll() { 
         if (isSplitscreen()) {
             ACTIVE_PERSPECTIVE ^= 1;
-            setCamera(0);
+                setCamera(0);
     #ifndef EXPERIMENTAL_RENDERING
             waitForRetrace__Q26JDrama6TVideoFUs(gpApplication.mDisplay->mVideo, gpApplication.mDisplay->mRetraceCount);
             hasRetraced = true;
@@ -366,5 +367,24 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x8017e874, 0, 0, 0), HXCameraInitOverride);
     SMS_PATCH_BL(SMS_PORT_REGION(0x8017f358, 0, 0, 0), HXCameraInitOverride);
     
+    // Fix Eel being wayy to slow
+	double GetAnmFrameRate() {
+        TApplication *app      = &gpApplication;
+        TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		if(director->mAreaID == TGameSequence::Area::AREA_MAREBOSS) {
+		    return 2.0f;
+        }
+        return 1.0f;
+	}
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d2710, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d12f0, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d2f8c, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d07a0, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d0b60, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d0898, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d2438, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d2364, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d2ad8, 0, 0, 0), GetAnmFrameRate);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d3350, 0, 0, 0), GetAnmFrameRate);
     
 }

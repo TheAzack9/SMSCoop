@@ -18,7 +18,7 @@ namespace SMSCoop {
 			setActiveMario(1-i);
 			loadAfter__15TMapWireManagerFv(wireManager);
 		}
-			setActiveMario(0);
+		setActiveMario(0);
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c1cd0, 0, 0, 0), (u32)(&TMapWireManager_loadAfter));
 

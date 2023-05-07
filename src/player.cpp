@@ -20,6 +20,11 @@
 #include "splitscreen.hxx"
 #include "shine.hxx"
 
+#include <SMS/SPC/SpcBinary.hxx>
+#include <SMS/SPC/SpcInterp.hxx>
+#include "BetterSMS/sunscript.hxx"
+
+
 namespace SMSCoop {
 	typedef struct {
 		TVec3f startPosition;
@@ -42,7 +47,10 @@ namespace SMSCoop {
 	
 	SpawnData spawnData[2];
 	int gessoTimer[2];
+	bool isBowserFight = false;
 
+	TMario* playerTalking = nullptr;
+	THitActor* nearestNpc = nullptr;
 
 	#define DYNAMIC_MARIO_LOADING true
 
@@ -50,6 +58,9 @@ namespace SMSCoop {
 		return loadedMarios;
 	}
 
+	TMario* getTalkingPlayer() {
+		return playerTalking;
+	}
 
 	TMario* getMarioById(int id) {
 		return marios[id];
@@ -67,11 +78,57 @@ namespace SMSCoop {
 		}
 		return closestId;
 	}
+	
+
+	THitActor* findNearestTalkNPC(TMarDirector* marDirector) {
+		nearestNpc = (THitActor*)marDirector->findNearestTalkNPC();
+		return nearestNpc;
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8029a8c8, 0, 0, 0), findNearestTalkNPC);
+
+	void handleTalking(TMarDirector* marDirector, THitActor* npc, bool isP1 = false) {
+		u32 initiatingPlayer = getClosestMarioId(&npc->mTranslation);
+		if(isP1) initiatingPlayer = 0;
+		u8 initiatingTalking = *(u8*)((u32)marDirector + 0x126);
+		
+		bool someoneTalking = false;
+		for(int i = 0; i < loadedMarios; ++i) {
+			if(marios[i]->mState == TMario::State::STATE_TALKING) {
+				someoneTalking = true;	
+			}
+		}
+
+		if(!someoneTalking) {
+			playerTalking = nullptr;
+			for(int i = 0; i < loadedMarios; ++i) {
+				*((u32*)&marDirector->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+			}
+		}
+
+
+		if(initiatingTalking && playerTalking == nullptr) {
+			playerTalking = marios[initiatingPlayer];
+
+		}
+		
+		for(int i = 0; i < loadedMarios; ++i) {
+			if(playerTalking != nullptr) {
+				if(marios[i] != playerTalking) {
+					*((u32*)&marDirector->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+					*((u32*)&marDirector->mGamePads[i]->mState) &= ~0x40000; // Player cannot talk when another is talking
+				} else {
+					*((u32*)&marDirector->mGamePads[i]->mState) |= 0x80000; // Player is not talking can move
+				}
+			}
+		}
+	}
+
 
 	// Description: Sets the global instance of mario and all access parameters
 	// Note: Cannot be set every other frame because game logic depends on one static global instance so swapping breaks the game.
 	// A lot of how mario works is connected to the global mario and must be manually changed to work with multiple players
 	
+
 int buttonsPressedWhileHeld[2];
 int prevButtons[2];
 float prevStickAngle[2];
@@ -199,6 +256,12 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 					mario = new TMario();
 				}
 				mario->load(*memoryStream);
+				
+				if(i != 0) {
+					mario->mKeyName = "Luigi";
+					mario->mKeyCode = JDrama::TNameRef::calcKeyCode("Luigi");
+				}
+
 				mario_viewObjPtrList->mViewObjList.push_back(mario);
 			}
 
@@ -284,6 +347,7 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 		}
 	}
 	
+	int framesWithoutTalking = 0;
 	// Run on update
 	void updateCoop(TMarDirector* marDirector) {
   //  auto *currentHeap = JKRHeap::sCurrentHeap;
@@ -307,13 +371,44 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 			luigi->mJumpParams.mRotateJumpForceY.set( 70 * 1.2);
 			luigi->mJumpParams.mSecJumpForce.set(52 * 1.2);
 			luigi->mJumpParams.mUltraJumpForce.set(75 * 1.2);
-	
+
+			bool someoneTalking = false;
 			for(int i = 0; i < loadedMarios; ++i) {
+				
+				if(marios[i]->mState == TMario::State::STATE_TALKING) {
+					someoneTalking = true;	
+				}
+
 				TApplication *app      = &gpApplication;
 				TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-				director->mGamePads[i]->mState.mIsTaling = director->mGamePads[0]->mState.mIsTaling;
+				if(marios[i]->mState != TMario::State::STATE_TALKING) {
+					*((u32*)&director->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+				}
+				//*((u32*)&director->mGamePads[i]->mState) = *((u32*)&director->mGamePads[0]->mState);
+				//*((u32*)&director->mGamePads[i]->mState) &= ~0x100000; // Allow to move during cutscenes
+
+				//if(marios[i] != playerTalking) {
+				//	*((u32*)&director->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+				//	if(playerTalking != nullptr) {
+				//		*((u32*)&director->mGamePads[i]->mState) &= ~0x40000; // Player cannot talk when another is talking
+				//	}
+				//}
+				/*director->mGamePads[i]->mState.mDisable = false;
+				director->mGamePads[i]->mState.mDisable = false;*/
 				
 			}
+			
+			if(!someoneTalking) {
+				playerTalking = nullptr;
+				for(int i = 0; i < loadedMarios; ++i) {
+					*((u32*)&marDirector->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+				}
+			}
+
+			if(!playerTalking && marDirector->mTalkingNPC != nullptr) {
+				handleTalking(marDirector, marDirector->mTalkingNPC);
+			}
+
 
 			// HACK: Swap the current yoshi every update in order to let one mario ride both yoshis
 			// This is because collision is bound to one specific yoshi per mario
@@ -321,6 +416,15 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 			swapYoshis();
 		}
 	}
+
+
+
+	void changePlayerStatusToTalking(TMario* mario, u32 state, u32 jumpSlipState, bool isGrounded) {
+		if(mario == playerTalking) {
+			mario->changePlayerStatus(state, jumpSlipState, isGrounded);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024deb8, 0, 0, 0), changePlayerStatusToTalking);
 
 	void TCameraBck_setFrame(void* cameraBck, f32 param_1) {
 		setFrame__10TCameraBckFf(cameraBck, param_1 + 1238.0 * jetcoasterDemoCallbackCamera);
@@ -380,6 +484,10 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 
 		load__Q26JDrama6TActorFR20JSUMemoryInputStream(mario, input);
 	
+		TApplication *app      = &gpApplication;
+		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		*((u32*)&director->mGamePads[loadedMarios]->mState) &= ~0x80000; // Player is not talking
+
 		marios[loadedMarios] = mario;
 	
 		if(loadedMarios == 1) {
@@ -399,7 +507,66 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 	// Description: A setup function on stage load to reset global fields per level
 	void setupPlayers(TMarDirector *director) {
 		setLoading(false);
+
 	}
+	
+	void isNearActors(TSpcInterp *interp, u32 argc) {
+		
+		for(int i = 0; i < argc; ++i) {
+			TSpcSlice& slice = interp->mSlices[interp->mSlicesCount - argc];
+			if(slice.mType == 0) {
+				THitActor *a = reinterpret_cast<THitActor *>(slice.mValue);
+				if(marios[0] == a) {
+					interp->mSlices[interp->mSlicesCount - argc].mValue = (u32)marios[getActivePerspective()];
+				}
+			} else if (slice.mType == 2) {
+				u16 keyCode = JDrama::TNameRef::calcKeyCode((const char*)slice.mValue);
+				if(keyCode == marios[0]->mKeyCode) {
+					slice.mValue = (u32)marios[getActivePerspective()]->mKeyName;
+				}
+			}
+		}
+
+		evIsNearActors__FP32TSpcTypedInterp_1(interp, argc);
+
+	}
+
+	void forceStartTalkExceptNpc(TSpcInterp *interp, u32 argc) {
+		
+		THitActor *target = reinterpret_cast<THitActor *>(interp->mSlices[0].mValue);
+		ev__ForceStartTalkExceptNpc__FP32TSpcTypedInterp_1(interp, argc);
+		
+		TApplication *app      = &gpApplication;
+		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		handleTalking(director, target);
+	}
+
+
+	void forceStartTalk(TSpcInterp *interp, u32 argc) {
+		
+		THitActor *target = reinterpret_cast<THitActor *>(interp->mSlices[0].mValue);
+		ev__ForceStartTalk__FP32TSpcTypedInterp_1(interp, argc);
+		TApplication *app      = &gpApplication;
+		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		handleTalking(director, target, true);
+	}
+
+	#define BIND_SYMBOL(binary, symbol, func)                                                          \
+    (binary)->bindSystemDataToSymbol((symbol), reinterpret_cast<u32>(&(func)))
+	void bindNearActorsFunction(TSpcBinary* spcBinary) {
+		BIND_SYMBOL(spcBinary, "isNearActors", isNearActors);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802892e0, 0, 0, 0), bindNearActorsFunction);
+
+	void forceStartTalkExceptNpcBind(TSpcBinary* spcBinary) {
+		BIND_SYMBOL(spcBinary, "__forceStartTalkExceptNpc", forceStartTalkExceptNpc);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8020ea4c, 0, 0, 0), forceStartTalkExceptNpcBind);
+	
+	void forceStartTalkBind(TSpcBinary* spcBinary) {
+		BIND_SYMBOL(spcBinary, "__forceStartTalk", forceStartTalk);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8020ea38, 0, 0, 0), forceStartTalkBind);
 
 	// Note: There should be a callback when loading starts in BetterSMS
 	u32 cleanupPlayersCoop(u32 param_1) {
@@ -410,9 +577,12 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 				awakenedObjects[i][j] = NULL;
 			}
 			playerPreviousWarpId[i] = 0;
+
 		}
 
+		isBowserFight = false;
 		setLoading(true);
+		playerTalking = nullptr;
 		loadedMarios = 0;
 		hasTriggeredMechaBowserCutscene = false;
 		return SMS_getShineIDofExStage__FUc(param_1);
@@ -481,6 +651,14 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 	// Description: Fix for luigi shadow. Basically there is a check whether shadow has been rendered This removes that check
 	// Optimization: Check for shadow individually between players
 	SMS_WRITE_32(SMS_PORT_REGION(0x80231834, 0, 0, 0), 0x60000000);
+
+	
+	// Disable hover being disabled when talking
+	SMS_WRITE_32(SMS_PORT_REGION(0x80269668, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x80269670, 0, 0, 0), 0x60000000);
+
+	// Fix spray when in cutscene
+	SMS_WRITE_32(SMS_PORT_REGION(0x8026ae48, 0, 0, 0), 0x60000000);
 
 	//SMS_WRITE_32(SMS_PORT_REGION(0x80276bb8, 0, 0, 0), 0x60000000);
 
@@ -683,20 +861,24 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 			int i = marioId;
 			setCamera(i);
 			setActiveMario(i);
-			TApplication *app      = &gpApplication;
-			TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-			auto* p1Gamepad = director->mGamePads[0];
-			director->mGamePads[0] = director->mGamePads[i];
 
-			u32 frameMeaning = director->mGamePads[0]->mFrameMeaning;
-			director->mGamePads[0]->mFrameMeaning = director->mGamePads[0]->mMeaning;
-			//personToCheckTalk = marioId;
+			TMarioGamePad* p1Gamepad = marDirector->mGamePads[0];
+			marDirector->mGamePads[0] = marDirector->mGamePads[i];
+
+			u32 frameMeaning = marDirector->mGamePads[0]->mFrameMeaning;
+			marDirector->mGamePads[0]->mFrameMeaning = marDirector->mGamePads[0]->mMeaning;
+			
+			*((u32*)&marDirector->mGamePads[0]->mState) &= ~0x100000; // Allow to move during cutscenes
+			
 			movement_game__12TMarDirectorFv(marDirector);
+			if(nearestNpc != nullptr) {
+				handleTalking(marDirector, nearestNpc);
+			}
 
-			director->mGamePads[0]->mFrameMeaning = frameMeaning;
+			marDirector->mGamePads[0]->mFrameMeaning = frameMeaning;
 			setCamera(0);
 			setActiveMario(0);
-			director->mGamePads[0] = p1Gamepad;
+			marDirector->mGamePads[0] = p1Gamepad;
 		} else {
 			//personToCheckTalk = 0;
 			movement_game__12TMarDirectorFv(marDirector);
@@ -729,14 +911,15 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 		if(gpMarDirector->mAreaID == TGameSequence::Area::AREA_MAREBOSS) {
 			return isInAreaCube__16TCubeManagerAreaCFRC3Vec(cubeManagerArea, objPos);
 		}
-		for(int i = 0; i < loadedMarios; ++i) {
-			TMario* mario = marios[i];
-		
-			u32 cubeNo = cubeManagerArea->getInCubeNo((Vec&)mario->mTranslation);
-			*(u32*)((u32)cubeManagerArea + 0x1c) = cubeNo;
-			u32 result = isInAreaCube__16TCubeManagerAreaCFRC3Vec(cubeManagerArea, objPos);
-			if(result) return result;
-		}
+		return true;
+		//for(int i = 0; i < loadedMarios; ++i) {
+		//	TMario* mario = marios[i];
+		//
+		//	u32 cubeNo = cubeManagerArea->getInCubeNo((Vec&)mario->mTranslation);
+		//	*(u32*)((u32)cubeManagerArea + 0x1c) = cubeNo;
+		//	u32 result = isInAreaCube__16TCubeManagerAreaCFRC3Vec(cubeManagerArea, objPos);
+		//	if(result) return result;
+		//}
 		return 0;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8021afec, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix2);
@@ -853,8 +1036,27 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 		int length; // 0x14
 		TBaseNPC** npcs; // 0x18
 	};
+	
+	void TBoardNpcManager_clipActors(NPCManager* npcManager, JDrama::TGraphics* graphics) {
+		
+		clipActors__16TBoardNpcManagerFPQ26JDrama9TGraphics(npcManager, graphics);
+		int length = npcManager->length;
+		for(int j = 0; j < loadedMarios; ++j) {
+			TMario* mario = marios[j];
+			for(int i = 0; i < length; ++i) {
+				TBaseNPC* npc = npcManager->npcs[i];
+				if(PSVECDistance((Vec*)&npc->mTranslation, (Vec*)&mario->mTranslation) < 500) {
+					npc->mStateFlags.asU32 = npc->mStateFlags.asU32 & 0xfffffffb;
+				}
 
-
+				// Fix crashes where getting shine or shine spawning when talking to npc 
+				if(isShineGot()) {
+					npc->mStateFlags.asU32 |= 4;
+				}
+			}
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d92e0, 0, 0, 0), (u32)(&TBoardNpcManager_clipActors));
 
 	void TNPCManager_clipEnemies(NPCManager* npcManager, JDrama::TGraphics* graphics) {
 	
@@ -868,6 +1070,7 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 					npc->mStateFlags.asU32 = npc->mStateFlags.asU32 & 0xfffffffb;
 				}
 
+				// Fix crashes where getting shine or shine spawning when talking to npc 
 				if(isShineGot()) {
 					npc->mStateFlags.asU32 |= 4;
 				}
@@ -916,39 +1119,53 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 		int i = getActivePerspective();
 		TApplication *app      = &gpApplication;
 		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-		talk2d->gamepad = director->mGamePads[i];
-		perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags, graphics);
+		if(playerTalking != nullptr) {
+			int marioId = getPlayerId(playerTalking);
+			talk2d->gamepad = director->mGamePads[marioId];
+
+			if(marios[i] == playerTalking) {
+				// Called twice for fps :c
+				setActiveMario(marioId);
+				setCamera(marioId);
+				perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags, graphics);
+
+				setActiveMario(i);
+				setCamera(i);
+			} else {
+				perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags & ~8, graphics);
+			}
+		}
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c03e8, 0, 0, 0), (u32)(&TTalk2D2_perform));
 
-	void checkController(Talk2D2* talk2d) {
-		for(int i = 0; i < loadedMarios; ++i) {
-			TApplication *app      = &gpApplication;
-			TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-			talk2d->gamepad = director->mGamePads[i];
-			setActiveMario(i);
-			setCamera(i);
-			checkControler__8TTalk2D2Fv(talk2d);
-		}
-		setActiveMario(0);
-		setCamera(0);
-	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x80151da4, 0, 0, 0), checkController);
+	//void checkController(Talk2D2* talk2d) {
+	//	for(int i = 0; i < loadedMarios; ++i) {
+	//		TApplication *app      = &gpApplication;
+	//		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+	//		talk2d->gamepad = director->mGamePads[i];
+	//		setActiveMario(i);
+	//		setCamera(i);
+	//		checkControler__8TTalk2D2Fv(talk2d);
+	//	}
+	//	setActiveMario(0);
+	//	setCamera(0);
+	//}
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x80151da4, 0, 0, 0), checkController);
 
 
-	void checkBoardController(Talk2D2* talk2d) {
-		for(int i = 0; i < loadedMarios; ++i) {
-			TApplication *app      = &gpApplication;
-			TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-			talk2d->gamepad = director->mGamePads[i];
-			setActiveMario(i);
-			setCamera(i);
-			checkBoardControler__8TTalk2D2Fv(talk2d);
-		}
-		setActiveMario(0);
-		setCamera(0);
-	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x80151d90, 0, 0, 0), checkBoardController);
+	//void checkBoardController(Talk2D2* talk2d) {
+	//	for(int i = 0; i < loadedMarios; ++i) {
+	//		TApplication *app      = &gpApplication;
+	//		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+	//		talk2d->gamepad = director->mGamePads[i];
+	//		setActiveMario(i);
+	//		setCamera(i);
+	//		checkBoardControler__8TTalk2D2Fv(talk2d);
+	//	}
+	//	setActiveMario(0);
+	//	setCamera(0);
+	//}
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x80151d90, 0, 0, 0), checkBoardController);
 
 
 	// Fix underwater hovering when all water particles are used
@@ -1026,10 +1243,10 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c0324, 0, 0, 0), (u32)(&TGCConsole2_perform_override));
 
 
-
 	// Description: Setup collision for both marios every frame
 	// Reason: Allow p2 to collide with platform separately from p1
 	void TBathtub_setupCollisions_Override(void* tBathtub) {
+		isBowserFight = true;
 		for (int i = loadedMarios-1; i >= 0; --i) {
 			setActiveMario(i);
 			setupCollisions___8TBathtubFv(tBathtub);
@@ -1040,8 +1257,13 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 	// Description: Disable the remove collision function entierly
 	// NB: Might have unknown consequences, should test this further...
 	// Reason: Enable collision for p2 in bowser fight
+	// NB: Used for e.g shrinking of spring 
 	int TMapCollisionBase_remove(void* m_this) {
-		return (int) m_this;
+		if(isBowserFight) {
+			return (int) m_this;
+		} else {
+			return remove__17TMapCollisionBaseFv(m_this);
+		}
 	}
 	// Override vtable
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c171c, 0, 0, 0), (u32)(&TMapCollisionBase_remove));
@@ -1324,5 +1546,48 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 		}
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801b75bc, 0, 0, 0), TMapObjBase_initPacketMatColor_gesso2);
+
+
+	bool isOnePlayerInCube(TCubeManagerBase* cubeManager, const Vec& marioPos, s32 param_3) {
+		for(int i = 0; i < loadedMarios; ++i) {
+			if(cubeManager->isInCube((const Vec&)marios[i]->mTranslation, param_3)) return true;
+		}
+		return false;
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028c834, 0, 0, 0), isOnePlayerInCube);
+	
+	bool isInvincible(TMario* mario) {
+		return mario->isInvincible() || playerTalking == mario;
+		
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x800bab44, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802428cc, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80242f80, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80243060, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283608, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802836c4, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028375c, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283c30, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283c8c, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283d00, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283d5c, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283db8, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283e24, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283ee0, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80283f80, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80284010, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80284074, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802840d4, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028438c, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80284450, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802844ac, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80284508, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802845bc, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80284678, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80284750, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028479c, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80284850, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802848e8, 0, 0, 0), isInvincible);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80284b68, 0, 0, 0), isInvincible);
 }
  

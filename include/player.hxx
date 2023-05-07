@@ -14,4 +14,5 @@ namespace SMSCoop {
 	void updateCoop(TMarDirector* mardirector);
 	bool cleanupPlayersCoop(TApplication* application);
 	void setWaterColorForMario(int id);
+	TMario* getTalkingPlayer();
 }

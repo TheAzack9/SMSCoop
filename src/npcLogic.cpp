@@ -23,6 +23,10 @@ namespace SMSCoop {
 		marioEnteringGate = nullptr;
 	}
 
+	TMario* getMarioEnteringGate() {
+		return marioEnteringGate;
+	}
+
 	void TRocket_attackToMario(JDrama::TActor* rocket) {
 		int cm = getClosestMarioId(&rocket->mTranslation);
 		if(canRocketMountMario[cm] == 0) return;
@@ -152,15 +156,14 @@ namespace SMSCoop {
 	
         TApplication *app      = &gpApplication;
         TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-		if(getPlayerCount() > 0) {
-			if(director->mAreaID != TGameSequence::Area::AREA_MAREBOSS) {
-				int i = getActivePerspective();
-				setActiveMario(i);
-				setCamera(i);
-			}
+		if(getPlayerCount() > 0 && director->mAreaID != TGameSequence::Area::AREA_MAREBOSS) {
+			int currentMarioId = getPlayerId(gpMarioOriginal);
+			int i = getActivePerspective();
+			setActiveMario(i);
+			setCamera(i);
 			testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(hitActor, renderFlags, graphics);
-			setCamera(0);
-			setActiveMario(0);
+			setCamera(currentMarioId);
+			setActiveMario(currentMarioId);
 		} else {
 				testPerform__Q26JDrama8TViewObjFUlPQ26JDrama9TGraphics(hitActor, renderFlags, graphics);
 		}
@@ -192,6 +195,7 @@ namespace SMSCoop {
 	// TODO: Fix sky in another way
 	int TMario_receiveMessage_enterGate(TMario* mario, THitActor* shineGate, u32 msg) {
 		if(marioEnteringGate != nullptr) return 0;
+		mario->dropObject();
 		int result = mario->receiveMessage(shineGate, msg);
 		if(result == 1) {
 			marioEnteringGate = mario;
@@ -199,6 +203,31 @@ namespace SMSCoop {
 		return result;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801eb28c, 0, 0, 0), TMario_receiveMessage_enterGate);
+
+	// Make the enter M cutscene play on the correct screen
+	u8 updateGameMode(TMarDirector* marDirector) {
+		int currentMario = getPlayerId(gpMarioOriginal);
+        TMario* marioEnteringGate = getMarioEnteringGate();
+		if(marioEnteringGate) {
+			int cm = getPlayerId(marioEnteringGate);
+			setActiveMario(cm);
+			setCamera(cm);
+		}
+		TMario* playerTalking = getTalkingPlayer();
+		if(playerTalking) {
+			int cm = getPlayerId(playerTalking);
+			setActiveMario(cm);
+			setCamera(cm);
+		}
+
+
+		u8 result = updateGameMode__12TMarDirectorFv(marDirector);
+
+		setCamera(currentMario);
+		setActiveMario(currentMario);
+		return result;
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80299140, 0, 0, 0), updateGameMode);
 
 	TMario* marioControllingLeaf = nullptr;
 	void TLeafBoat_control(void* leafBoat) {
@@ -252,8 +281,78 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803d166c, 0, 0, 0), (u32)(&TMuddyBoat_control));
 
 
+	class TSmallEnemy : public THitActor {
+	public:
+		u32 _0x68[140/4]; // 0x68
+		THitActor* mTarget; // 0xf4
+		TVec3f mTargetPos; // 0xf8
+		THitActor* mTarget2; // 0x104
+		TVec3f mTargetPos2; // 0x108
+	};
 
+	// Fixes small enemy not changing target when another player is close
+	// Fixes for SamboHead (Pokey head) and THanaSambo (Pokey)
+	void TSmallEnemy_perform(TSmallEnemy* smallEnemy, u32 performFlags, JDrama::TGraphics* graphics) {
 
+		TMario* closestMario = getMarioById(getClosestMarioId(&smallEnemy->mTranslation));
 
+		smallEnemy->mTarget = closestMario;
+		smallEnemy->mTarget2 = closestMario;
+		smallEnemy->mTargetPos = closestMario->mTranslation;
+		smallEnemy->mTargetPos2 = closestMario->mTranslation;
+		
+		perform__11TSmallEnemyFUlPQ26JDrama9TGraphics(smallEnemy, performFlags, graphics);
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b9e2c, 0, 0, 0), (u32)(&TSmallEnemy_perform));
+	SMS_PATCH_BL(SMS_PORT_REGION(0x800e3058, 0, 0, 0), TSmallEnemy_perform);
 
+	
+	// Fixes Petey (Boss Pakkun) swallow not triggering when petey is not facing both players
+	void TBPHeadHit_receiveMessage(JDrama::TPlacement* bpHead, THitActor* sender, u32 message) {
+		int currentMario = getPlayerId(gpMarioOriginal);
+		int closestMario = getClosestMarioId(&bpHead->mTranslation);
+
+		setActiveMario(closestMario);
+
+		receiveMessage__10TBPHeadHitFP9THitActorUl(bpHead, sender, message);
+
+		setActiveMario(currentMario);
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b4870, 0, 0, 0), (u32)(&TBPHeadHit_receiveMessage));
+
+		
+	// Fixes Petey (Boss Pakkun) swallow not triggering when petey is not facing both players
+	void TEnemyMario_checkPlayerAction(TMario* enemyMario, JDrama::TGraphics* graphics) {
+		int currentMario = getPlayerId(gpMarioOriginal);
+		int closestMario = getClosestMarioId(&enemyMario->mTranslation);
+
+		setActiveMario(closestMario);
+
+		enemyMario->checkPlayerAction(graphics);
+
+		setActiveMario(currentMario);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x800400ac, 0, 0, 0), TEnemyMario_checkPlayerAction);
+
+	
+	// Make things perform when still talking
+	SMS_WRITE_32(SMS_PORT_REGION(0x80216eac, 0, 0, 0), 0x60000000); // npc movement
+	SMS_WRITE_32(SMS_PORT_REGION(0x801afb88, 0, 0, 0), 0x60000000); // object movement
+	SMS_WRITE_32(SMS_PORT_REGION(0x801be828, 0, 0, 0), 0x60000000); // perform coins
+	SMS_WRITE_32(SMS_PORT_REGION(0x80213bc4, 0, 0, 0), 0x60000000); // spray things when talking
+	SMS_WRITE_32(SMS_PORT_REGION(0x800ed56c, 0, 0, 0), 0x60000000); // spray things when talking
+	SMS_WRITE_32(SMS_PORT_REGION(0x8006b09c, 0, 0, 0), 0x60000000); // allow small enemies to move
+	SMS_WRITE_32(SMS_PORT_REGION(0x80255f1c, 0, 0, 0), 0x60000000); // Not invincible while talking (This is overriden so only the talking player is invincible)
+	//SMS_WRITE_32(SMS_PORT_REGION(0x80255ec0, 0, 0, 0), 0x4800000c); // Not invincible while talking (This is overriden so only the talking player is invincible)
+	SMS_WRITE_32(SMS_PORT_REGION(0x802536fc, 0, 0, 0), 0x60000000); // Affected by fire goop
+	//SMS_WRITE_32(SMS_PORT_REGION(0x802536a0, 0, 0, 0), 0x4800000c); // Affected by fire goop
+	SMS_WRITE_32(SMS_PORT_REGION(0x802532f0, 0, 0, 0), 0x60000000); // Affected by electric goop
+	//SMS_WRITE_32(SMS_PORT_REGION(0x80253294, 0, 0, 0), 0x4800000c); // Affected by electric goop
+
+	SMS_WRITE_32(SMS_PORT_REGION(0x8024fe80, 0, 0, 0), 0x60000000); // Affected by electric goop
+
+	// Disable eel demo camera
+	SMS_WRITE_32(SMS_PORT_REGION(0x800d1540, 0, 0, 0), 0x60000000); // Affected by electric goop
+
+	
 }
