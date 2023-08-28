@@ -1121,7 +1121,7 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 		if(playerTalking != nullptr) {
 			int marioId = getPlayerId(playerTalking);
-			talk2d->gamepad = director->mGamePads[marioId];
+      ((TMarioGamePad **)talk2d)[0x24C / 4] = director->mGamePads[marioId];
 
 			if(marios[i] == playerTalking) {
 				// Called twice for fps :c
