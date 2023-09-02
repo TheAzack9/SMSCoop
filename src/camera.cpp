@@ -13,9 +13,11 @@
 #include <SMS/Camera/CameraMarioData.hxx>
 #include <memory.hxx>
 #include <sdk.h>
+#include <string.h>
 
 #include "player.hxx"
 #include "splitscreen.hxx"
+#include "shine.hxx"
 
 namespace SMSCoop {
 	CPolarSubCamera* cameras[2];
@@ -177,13 +179,24 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8023d3c4, 0, 0, 0), getCamera);
 
+	char** cameraInside = SMS_PORT_REGION((char**)0x8040c1e8, 0, 0, 0);
+	char** cameraOutside = SMS_PORT_REGION((char**)0x8040c1ec, 0, 0, 0);
+
 	// Description: When demo starts/ends, start/end for all cameras.
 	// TODO: Make it based on individual controllers input press
 	void CPolarSubCamera_StartDemoCamera_Override(CPolarSubCamera* p1Camera, char* filename, TVec3f* position, s32 param_3, f32 param_4, bool param_5) {
+
+		bool isShineDemoCamera = strcmp(filename, *cameraInside) == 0 || strcmp(filename, *cameraOutside) == 0;
+		if(isShineDemoCamera) {
+			setShineCutscene(true);
+		}
+		
 		for (int i = 0; i < getPlayerCount(); i++) {
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
-			setCamera(i);
-			camera->startDemoCamera(filename, position, param_3, param_4, param_5);
+			if(!isShineDemoCamera || (isShineGot() && getMarioThatPickedShine() == i)) {
+				setCamera(i);
+				camera->startDemoCamera(filename, position, param_3, param_4, param_5);
+			}
 		}
 		setCamera(0);
 	}

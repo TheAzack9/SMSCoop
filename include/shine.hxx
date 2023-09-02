@@ -4,5 +4,6 @@ namespace SMSCoop {
 	void updateShineTimer(TMarDirector* marDirector);
 	bool isShineGot();
 	void resetShineLogic(TMarDirector* marDirector);
-	bool isShineSpawnCutscene();
+	int getMarioThatPickedShine();
+	void setShineCutscene(bool setIsShineCutscene);
 }
