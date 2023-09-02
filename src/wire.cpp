@@ -7,15 +7,26 @@
 #include "splitscreen.hxx"
 #include "player.hxx"
 #include "raw_fn.hxx"
+#include "settings.hxx"
+
+extern SMSCoop::SplitScreenSetting gSplitScreenSetting;
 
 namespace SMSCoop {
 
 	int justTakenId = 0;
 
-	
+	// TODO: This seems weird and should probably be fixed...
 	void TMapWireManager_loadAfter(void* wireManager) {
-		for(int i = 0; i < getPlayerCount(); ++i) {
-			setActiveMario(1-i);
+		int playerCount = getPlayerCount();
+		for(int i = 0; i < playerCount; ++i) {
+			int activeMario = 1-i;
+			
+			if(gSplitScreenSetting.getInt() == SplitScreenSetting::NONE) {
+				activeMario = 0;
+			}
+			// Only happens if no mario
+			if(activeMario > playerCount) activeMario = 0;
+			setActiveMario(activeMario);
 			loadAfter__15TMapWireManagerFv(wireManager);
 		}
 		setActiveMario(0);

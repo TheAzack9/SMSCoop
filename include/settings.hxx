@@ -8,8 +8,8 @@ namespace SMSCoop {
         enum Kind { NONE, VERTICAL, HORIZONTAL };
 
     
-        SplitScreenSetting(const char *name) : IntSetting(name, &mSplitScreenValue), mSplitScreenValue(VERTICAL) {
-            mValueRange = {1, 2, 1};
+        SplitScreenSetting(const char *name) : IntSetting(name, &mSplitScreenValue), mSplitScreenValue(NONE) {
+            mValueRange = {0, 2, 1};
         }
         ~SplitScreenSetting() override {}
 
@@ -36,7 +36,7 @@ namespace SMSCoop {
     public:
     
         ShineGrabDistanceSetting(const char *name) : BoolSetting(name, &mEnableShineGrabRange) {
-            mEnableShineGrabRange = true;
+            mEnableShineGrabRange = false;
         }
         ~ShineGrabDistanceSetting() override {}
 

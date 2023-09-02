@@ -67,16 +67,10 @@ namespace SMSCoop {
 	}
 
 	int getClosestMarioId(TVec3f* position) {
-		int closestId = 0;
-		float closest = 9999800001.0f;
-		for(int i = 0; i < loadedMarios; ++i) {
-			float dist = PSVECSquareDistance((Vec*)position, (Vec*)&marios[i]->mTranslation);
-			if(closest > dist ) {
-				closestId = i;
-				closest = dist;
-			}
-		}
-		return closestId;
+		float closest0 = PSVECSquareDistance((Vec*)position, (Vec*)&marios[0]->mTranslation);
+		if(loadedMarios == 1) return 0;
+		float closest1 = PSVECSquareDistance((Vec*)position, (Vec*)&marios[1]->mTranslation);
+		return closest0 > closest1;
 	}
 	
 
@@ -1204,8 +1198,34 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 
 	// Load all instances of TGCConsole2
 	void TGCConsole2_load(TGCConsole2* tgcConsole2, JSUMemoryInputStream* param_1) {
+		char buffer[64];
+
 		for(int i = 0; i < 2; ++i) {
 			load__11TGCConsole2FR20JSUMemoryInputStream(consoles[i], param_1);
+
+			// TODO: Not hard coded
+			if(i == 1) {
+				{
+					J2DPicture* marioIcon =
+						reinterpret_cast<J2DPicture*>(consoles[i]->mMainScreen->search('m_ic'));
+					snprintf(buffer, 64, "/game_6/timg/%s_icon.bti", "luigi");
+
+					auto* timg = reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(buffer));
+					if (timg)
+						marioIcon->changeTexture(timg, 0);
+				}
+
+				{
+					J2DPicture *marioName =
+						reinterpret_cast<J2DPicture *>(consoles[i]->mMainScreen->search('m_tx'));
+
+					snprintf(buffer, 64, "/game_6/timg/%s_text.bti", "luigi");
+
+					auto *timg = reinterpret_cast<ResTIMG *>(JKRFileLoader::getGlbResource(buffer));
+					if (timg)
+						marioName->changeTexture(timg, 0);
+				}
+			}
 		}
 	}
 	// Override vtable
