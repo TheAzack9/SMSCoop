@@ -3,6 +3,7 @@
 #include <Dolphin/math.h>
 #include <Dolphin/OS.h>
 #include <Dolphin/string.h>
+#include <SMS/MarioUtil/gd-reinit-gx.hxx>
 
 #include <JSystem/J2D/J2DOrthoGraph.hxx>
 #include <JSystem/J2D/J2DTextBox.hxx>
@@ -16,6 +17,7 @@
 #include <BetterSMS/loading.hxx>
 #include <BetterSMS/settings.hxx>
 #include <BetterSMS/player.hxx>
+#include <BetterSMS/debug.hxx>
 #include "characters.hxx"
 #include "player.hxx"
 #include "splitscreen.hxx"
@@ -23,6 +25,8 @@
 #include "npcLogic.hxx"
 #include "camera.hxx"
 #include "shine.hxx"
+
+#include <System/RenderModeObj.hxx>
 
 const u8 gSaveBnr[] = {
     0x09, 0x00, 0x00, 0x60, 0x00, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0xf3, 0x00, 0x00, 0x0c, 0x20,
@@ -422,7 +426,92 @@ SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting("Max shine grab dist
 
 static BetterSMS::ModuleInfo sModuleInfo{"Mario Sunshine Coop", 1, 0, &gSettingsGroup};
 
+
+bool isMemoryExpanded() {
+    return *((u32*)0x800000f0) == 0x04000000;
+}
+
+//
+//int PatchSetter(pp::togglable_ppc_bl** patchToSet, pp::togglable_ppc_bl* patch) {
+//    *patchToSet = patch;
+//    return 23;
+//}
+//
+//
+//inline u32 findMemoryDelta(u32 value) {
+//    return value & 0x3fffffc;
+//}
+//
+//pp::togglable_ppc_bl* my_patchAfter = nullptr;
+//typedef void (*func_type)(TApplication*);
+//void myLinkAfter(TApplication* app) {
+//    u32 memDelta = findMemoryDelta(my_patchAfter->overwritten_value());
+//    u32 overwrittenAddress = (u32)SMS_PORT_REGION(0x80005624, 0, 0, 0) + memDelta;
+//    TApplication_initialize_after(app);
+//    OSReport("LMAOINGENENG %u\n", app->mContext);
+//    func_type init_app = (func_type)overwrittenAddress;
+//    init_app(app);
+//}
+//
+//static pp::togglable_ppc_bl my_patch((u32)SMS_PORT_REGION(0x80005624, 0, 0, 0), (void*)myLinkAfter);
+//static int testing = PatchSetter(&my_patchAfter, &my_patch);
+//SMS_LINK_AFTER_BL(SMS_PORT_REGION(0x80005624, 0, 0, 0), TApplication_initialize_after);
+
+
+
+void TApplication_custom_proc(TApplication* app) {
+    J2DTextBox *gpFPSStringW = nullptr;
+    J2DTextBox *gpFPSStringB = nullptr;
+    SMSSetupGCLogoRenderingInfo(app->mDisplay);
+    app->gameLoop();
+    app->initialize_bootAfter();
+    
+    const char* memoryWarningText = "Warning!!! Memory is not increased.\n\nYou must increase Dolphins memory\nsize in order to play this hack.\n\nTo do this, make sure you are on\na recent build of Dolphin.\nIn Config/Advanced/Memory Override\nIncrease MEM1 all the way to 64MB.";
+    gpFPSStringW                  = new J2DTextBox(gpSystemFont->mFont, memoryWarningText);
+    gpFPSStringB                  = new J2DTextBox(gpSystemFont->mFont, memoryWarningText);
+    gpFPSStringW->mNewlineSize    = 17*1.5;
+    gpFPSStringW->mCharSizeX      = 14*1.5;
+    gpFPSStringW->mCharSizeY      = 17*1.5;
+    gpFPSStringB->mNewlineSize    = 17*1.5;
+    gpFPSStringB->mCharSizeX      = 14*1.5;
+    gpFPSStringB->mCharSizeY      = 17*1.5;
+    gpFPSStringB->mGradientTop    = {0, 0, 0, 255};
+    gpFPSStringB->mGradientBottom = {0, 0, 0, 255};
+
+    while(true) {
+        SMSSetupGCLogoRenderingInfo(app->mDisplay);
+        app->mDisplay->startRendering();
+
+        J2DOrthoGraph ortho(0, 0, BetterSMS::getScreenOrthoWidth(), 448);
+        ortho.setup2D();
+
+        GXSetViewport(0, 0, 640, 480, 0, 1);
+        {
+            Mtx44 mtx;
+            C_MTXOrtho(mtx, 16, 496, -BetterSMS::getScreenRatioAdjustX(),
+                       BetterSMS::getScreenRenderWidth(), -1, 1);
+            GXSetProjection(mtx, GX_ORTHOGRAPHIC);
+        } 
+        
+        // Draw warning
+        auto monitorX = 60 + getScreenRatioAdjustX();
+        auto monitorY = 150;
+        gpFPSStringB->draw(monitorX + 1, monitorY + 2);
+        gpFPSStringW->draw(monitorX, monitorY);
+
+
+        THPPlayerDrawDone();
+        app->mDisplay->endRendering();
+    }
+	
+}
+static pp::togglable_ppc_bl my_patch((u32)SMS_PORT_REGION(0x80005624, 0, 0, 0), (void*)TApplication_custom_proc);
+
 static void initModule() {
+
+    my_patch.disable();
+
+
     OSReport("Initializing Coop Module...\n");
     gSettingsGroup.addSetting(&gSplitScreenSetting);
     gSettingsGroup.addSetting(&gShineGrabDistanceSetting);
@@ -453,6 +542,11 @@ static void initModule() {
     BetterSMS::Stage::registerInitCallback("SMSCoop_initCharacterArchivesCoop", SMSCoop::initCharacterArchives);
     BetterSMS::Stage::registerInitCallback("SMSCoop_resetShineLogic", SMSCoop::resetShineLogic);
     SMSCoop::setSkinForPlayer(1, "/data/luigi.arc");
+
+    // Display warning in game if memory not expanded
+    if(!isMemoryExpanded()) {
+        my_patch.enable();
+    }
 }
 
 static void deinitModule() {
