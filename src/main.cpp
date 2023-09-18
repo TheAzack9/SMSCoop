@@ -24,17 +24,6 @@
 #include "camera.hxx"
 #include "shine.hxx"
 
-#include <SMS/GC2D/SelectDir.hxx>
-#include <SMS/Player/MarioGamePad.hxx>
-#include <SMS/System/GCLogoDir.hxx>
-#include <SMS/System/MenuDirector.hxx>
-#include <SMS/System/MovieDirector.hxx>
-#include <SMS/System/RenderModeObj.hxx>
-#include <SMS/System/Resolution.hxx>
-#include <SMS/Manager/FlagManager.hxx>
-#include <SMS/Manager/RumbleManager.hxx>
-#include <SMS/System/CardManager.hxx>
-
 const u8 gSaveBnr[] = {
     0x09, 0x00, 0x00, 0x60, 0x00, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0xf3, 0x00, 0x00, 0x0c, 0x20,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,

@@ -207,7 +207,7 @@ namespace SMSCoop {
 	void MSoundSESystem_MSoundSE_checkSoundArea(JAIBasic* jaiBasic, TVec3f* param_1, TVec3f* param_2, float* param_3, u32 sourceIdx) {
 		for (int i = 0; i < getPlayerCount(); i++) {
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
-			setCameraInfo__8JAIBasicFP3VecP3VecPA4_fUl(jaiBasic, camera + 0x124, camera + 0x13c, camera->mMatrixTRS, i);
+			setCameraInfo__8JAIBasicFP3VecP3VecPA4_fUl(jaiBasic, camera + 0x124, camera + 0x13c, camera->mTRSMatrix, i);
 		}
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x800153b8, 0, 0, 0), MSoundSESystem_MSoundSE_checkSoundArea);
@@ -224,7 +224,7 @@ namespace SMSCoop {
 		for(int i = 1; i < getPlayerCount(); ++i) {
 			Vec newDist;
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
-			PSMTXMultVec(camera->mMatrixTRS, source, &newDist);
+			PSMTXMultVec(camera->mTRSMatrix, source, &newDist);
 			f32 newMag = PSVECMag(&newDist);
 			if(fdist > newMag) {
 				fdist = newMag;
