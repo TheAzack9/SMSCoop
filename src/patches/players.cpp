@@ -13,6 +13,7 @@
 
 #include "characters.hxx"
 #include "camera.hxx"
+#include "splitscreen.hxx"
 
 static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
@@ -139,15 +140,16 @@ namespace SMSCoop {
 	void TMarioGamePad_updateMeaning_override(TMarioGamePad* gamepad) {
 		TApplication* app = &gpApplication;
 		// A bit of a jank way to check if it is player 2 sadly
-		if(loadedMarios > 1 && gamepad == app->mGamePads[1]) {
-			setActiveMario(1);
-			setCamera(1);
+		for(int i = 0; i < 4; ++i) {
+			if(loadedMarios > i && gamepad == app->mGamePads[i]) {
+				setActiveMario(i);
+				setCamera(i);
+			}
 		}
 		updateMeaning__13TMarioGamePadFv(gamepad);
-		if(loadedMarios > 1 && gamepad == app->mGamePads[1]) {
-			setActiveMario(0);
-			setCamera(0);
-		}
+		u8 currentId = getActiveViewport();
+		setActiveMario(currentId);
+		setCamera(currentId);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80299a84, 0, 0, 0), TMarioGamePad_updateMeaning_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a6024, 0, 0, 0), TMarioGamePad_updateMeaning_override);
@@ -166,8 +168,9 @@ namespace SMSCoop {
 
 		//SimulateEscapeHeld(mario);
 		if(param_1 & 0x1) {
-			setActiveMario(0);
-			setCamera(0);
+			u8 currentId = getActiveViewport();
+			setActiveMario(currentId);
+			setCamera(currentId);
 		}
 	}
 	// Override vtable

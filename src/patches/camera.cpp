@@ -105,10 +105,6 @@ namespace SMSCoop {
 		setCamera(i);
 		((u32*)pCamera)[0x120 / 4] = (u32)app->mGamePads[i];
 		perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
-
-		// I saw i missed this in the first beta version and it is what fixed reflection. TODO: Research proper way to fix reflection
-		setCamera(0); 
-		setActiveMario(0);
 	} 
 
 
@@ -193,11 +189,9 @@ namespace SMSCoop {
 		for (int i = 0; i < getPlayerCount(); i++) {
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
 			//if(!isShineDemoCamera || (isShineGot() && getMarioThatPickedShine() == i)) {
-				setCamera(i);
 				camera->startDemoCamera(filename, position, param_3, param_4, param_5);
 			//}
 		}
-		setCamera(0);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80297f7c, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802981a8, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
@@ -206,10 +200,8 @@ namespace SMSCoop {
 	void CPolarSubCamera_EndDemoCamera_Override(CPolarSubCamera* camera) {
 		for (int i = 0; i < getPlayerCount(); i++) {
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
-			setCamera(i);
 			camera->endDemoCamera();
 		}
-		setCamera(0);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80297f34, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80297fd4, 0, 0, 0), CPolarSubCamera_EndDemoCamera_Override);
