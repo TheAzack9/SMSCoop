@@ -7,11 +7,13 @@ set(CMAKE_CXX_STANDARD 20)
 file(GLOB BETTER_MODULE_SRC
     "src/*.c"
     "src/*.cpp"
+    "src/**/*.cpp"
     "include/*.h"
     "include/*.hxx"
+    "include/**/*.hxx"
 )
 
-add_executable(SunshineCoop ${BETTER_MODULE_SRC})
+add_executable(SunshineCoop ${BETTER_MODULE_SRC} "src/patches/players.cpp" "src/patches/camera.cpp")
 add_subdirectory(lib/BetterSunshineEngine)
 
 target_link_libraries(SunshineCoop PUBLIC BetterSunshineEngine)
@@ -34,11 +36,11 @@ add_custom_command(
 
 add_custom_command(
     TARGET ${PROJECT_NAME}.kxe
-    COMMAND ${PROJECT_SOURCE_DIR}/lib/BetterSunshineEngine/tools/KuriboConverter.exe ARGS ${PROJECT_NAME} "C:/Users/robgr/OneDrive/Documents/Projects/Mario_sunshine/speedrunning/mario sunshine/iso/sunburn_1_8_prerelease/root/files/Kuribo!/Mods/${PROJECT_NAME}.kxe" ${PROJECT_SOURCE_DIR}/lib/BetterSunshineEngine/maps/${SMS_REGION}.map
+    COMMAND ${PROJECT_SOURCE_DIR}/lib/BetterSunshineEngine/tools/KuriboConverter.exe ARGS ${PROJECT_NAME} "C:/Users/robgr/OneDrive/Documents/Projects/Mario_sunshine/speedrunning/mario sunshine/iso/better_sunshine_2/root/files/Kuribo!/Mods/${PROJECT_NAME}.kxe" ${PROJECT_SOURCE_DIR}/lib/BetterSunshineEngine/maps/${SMS_REGION}.map
 )
 
 
 add_custom_command(
     TARGET ${PROJECT_NAME}.kxe
-    COMMAND "C:/Program Files/Dolphin/Dolphin.exe" ARGS --logger --debugger --exec "C:/Users/robgr/OneDrive/Documents/Projects/Mario_sunshine/speedrunning/mario sunshine/iso/sunburn_1_8_prerelease/root/sys/main.dol"
+    COMMAND "C:/Program Files/Dolphin/Dolphin.exe" ARGS --logger --debugger --exec "C:/Users/robgr/OneDrive/Documents/Projects/Mario_sunshine/speedrunning/mario sunshine/iso/better_sunshine_2/root/sys/main.dol"
 )

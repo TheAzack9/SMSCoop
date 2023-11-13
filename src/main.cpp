@@ -18,15 +18,10 @@
 #include <BetterSMS/settings.hxx>
 #include <BetterSMS/player.hxx>
 #include <BetterSMS/debug.hxx>
-#include "characters.hxx"
-#include "player.hxx"
-#include "splitscreen.hxx"
-#include "settings.hxx"
-#include "npcLogic.hxx"
-#include "camera.hxx"
-#include "shine.hxx"
 
 #include <System/RenderModeObj.hxx>
+
+#include "characters.hxx"
 
 const u8 gSaveBnr[] = {
     0x09, 0x00, 0x00, 0x60, 0x00, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0xf3, 0x00, 0x00, 0x0c, 0x20,
@@ -421,8 +416,8 @@ const u8 gSaveIcon[] = {
 
 Settings::SettingsGroup gSettingsGroup(1, 0, Settings::Priority::GAME);
 
-SMSCoop::SplitScreenSetting gSplitScreenSetting("Splitscreen");
-SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting("Max shine grab distance");
+//SMSCoop::SplitScreenSetting gSplitScreenSetting("Splitscreen");
+//SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting("Max shine grab distance");
 
 static BetterSMS::ModuleInfo sModuleInfo{"Mario Sunshine Coop", 1, 0, &gSettingsGroup};
 
@@ -430,34 +425,6 @@ static BetterSMS::ModuleInfo sModuleInfo{"Mario Sunshine Coop", 1, 0, &gSettings
 bool isMemoryExpanded() {
     return *((u32*)0x800000f0) == 0x04000000;
 }
-
-//
-//int PatchSetter(pp::togglable_ppc_bl** patchToSet, pp::togglable_ppc_bl* patch) {
-//    *patchToSet = patch;
-//    return 23;
-//}
-//
-//
-//inline u32 findMemoryDelta(u32 value) {
-//    return value & 0x3fffffc;
-//}
-//
-//pp::togglable_ppc_bl* my_patchAfter = nullptr;
-//typedef void (*func_type)(TApplication*);
-//void myLinkAfter(TApplication* app) {
-//    u32 memDelta = findMemoryDelta(my_patchAfter->overwritten_value());
-//    u32 overwrittenAddress = (u32)SMS_PORT_REGION(0x80005624, 0, 0, 0) + memDelta;
-//    TApplication_initialize_after(app);
-//    OSReport("LMAOINGENENG %u\n", app->mContext);
-//    func_type init_app = (func_type)overwrittenAddress;
-//    init_app(app);
-//}
-//
-//static pp::togglable_ppc_bl my_patch((u32)SMS_PORT_REGION(0x80005624, 0, 0, 0), (void*)myLinkAfter);
-//static int testing = PatchSetter(&my_patchAfter, &my_patch);
-//SMS_LINK_AFTER_BL(SMS_PORT_REGION(0x80005624, 0, 0, 0), TApplication_initialize_after);
-
-
 
 void TApplication_custom_proc(TApplication* app) {
     J2DTextBox *gpFPSStringW = nullptr;
@@ -505,16 +472,17 @@ void TApplication_custom_proc(TApplication* app) {
     }
 	
 }
-static pp::togglable_ppc_bl my_patch((u32)SMS_PORT_REGION(0x80005624, 0, 0, 0), (void*)TApplication_custom_proc);
+static pp::togglable_ppc_bl my_patch((u32)SMS_PORT_REGION(0x80005624, 0, 0, 0), (void*)TApplication_custom_proc, false);
+
+void setDebug(TApplication *application) {
+    BetterSMS::setDebugMode(true);
+}
 
 static void initModule() {
 
-    my_patch.disable();
-
-
     OSReport("Initializing Coop Module...\n");
-    gSettingsGroup.addSetting(&gSplitScreenSetting);
-    gSettingsGroup.addSetting(&gShineGrabDistanceSetting);
+    //gSettingsGroup.addSetting(&gSplitScreenSetting);
+    //gSettingsGroup.addSetting(&gShineGrabDistanceSetting);
 
     {
         auto &saveInfo        = gSettingsGroup.getSaveInfo();
@@ -534,31 +502,22 @@ static void initModule() {
     BetterSMS::registerModule(&sModuleInfo);
 
     //// Register callbacks
-    //BetterSMS::setDebugMode(true);
-    BetterSMS::Stage::registerInitCallback("SMSCoop_setupPlayersCoop", SMSCoop::setupPlayers);
-    BetterSMS::Stage::registerInitCallback("SMSCoop_cleanupNpcLogic", SMSCoop::resetNpcLogic);
-    BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateCoop", SMSCoop::updateCoop);
-    BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateShine", SMSCoop::updateShineTimer);
+    
+    BetterSMS::Game::registerBootCallback("Coop_debug_mode", setDebug);
     BetterSMS::Stage::registerInitCallback("SMSCoop_initCharacterArchivesCoop", SMSCoop::initCharacterArchives);
-    BetterSMS::Stage::registerInitCallback("SMSCoop_resetShineLogic", SMSCoop::resetShineLogic);
     SMSCoop::setSkinForPlayer(1, "/data/luigi.arc");
 
     // Display warning in game if memory not expanded
-    if(!isMemoryExpanded()) {
-        my_patch.enable();
-    }
+    //if(!isMemoryExpanded()) {
+    //    my_patch.enable();
+    //}
 }
 
 static void deinitModule() {
     OSReport("Deinitializing Coop Module...\n");
-
-    //// Cleanup callbacks
-    BetterSMS::Stage::deregisterInitCallback("SMSCoop_setupPlayersCoop");
-    //BetterSMS::Game::deregisterChangeCallback("cleanupPlayersCoop");
-    BetterSMS::Stage::deregisterInitCallback("SMSCoop_cleanupNpcLogic");
-    BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateCoop");
-    BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateShine");
+    BetterSMS::Game::deregisterBootCallback("Coop_debug_mode");
     BetterSMS::Stage::deregisterInitCallback("SMSCoop_initCharacterArchivesCoop");
+
 }
 
 // Definition block
@@ -566,15 +525,6 @@ KURIBO_MODULE_BEGIN("SMS Coop", "theAzack9", "v1.0") {
     // Set the load and unload callbacks to our registration functions
     KURIBO_EXECUTE_ON_LOAD { 
         initModule(); 
-        KURIBO_EXPORT_AS(SMSCoop::setSkinForPlayer, "setSkinForPlayer__7SMSCoopFiPCc");
-        KURIBO_EXPORT_AS(SMSCoop::setActiveMario, "setActiveMario__7SMSCoopFi");
-        KURIBO_EXPORT_AS(SMSCoop::getMarioById, "getMarioById__7SMSCoopFi");
-        KURIBO_EXPORT_AS(SMSCoop::getActivePerspective, "getActivePerspective__7SMSCoopFv");
-        KURIBO_EXPORT_AS(SMSCoop::getPlayerCount, "getPlayerCount__7SMSCoopFv");
-        KURIBO_EXPORT_AS(SMSCoop::getClosestMarioId, "getClosestMarioId__7SMSCoopFPQ29JGeometry8TVec3<f>");
-        KURIBO_EXPORT_AS(SMSCoop::getPlayerId, "getPlayerId__7SMSCoopFP6TMario");
-        KURIBO_EXPORT_AS(SMSCoop::getCameraById, "getCameraById__7SMSCoopFi");
-        KURIBO_EXPORT_AS(SMSCoop::setCamera, "setCamera__7SMSCoopFi");
     }
     KURIBO_EXECUTE_ON_UNLOAD { deinitModule(); }
 }

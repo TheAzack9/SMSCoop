@@ -15,9 +15,8 @@
 #include <sdk.h>
 #include <string.h>
 
-#include "player.hxx"
+#include "players.hxx"
 #include "splitscreen.hxx"
-#include "shine.hxx"
 
 namespace SMSCoop {
 	CPolarSubCamera* cameras[2];
@@ -73,7 +72,7 @@ namespace SMSCoop {
 			unk[4] = c;
 			//*gpMarioOriginal = (TMario*)marios[i];
 			setActiveMario(i);
-			//setCamera(i);
+			setCamera(i);
 			*gpCameraMario = c1[i];
 			SDAstoreword(-0x7108, c2[i]);
 			load__Q26JDrama10TPlacementFR20JSUMemoryInputStream(cameras[i], unk);
@@ -81,6 +80,7 @@ namespace SMSCoop {
 		*gpCameraMario = c1[0];
 		SDAstoreword(-0x7108, c2[0]);
 		setActiveMario(0);
+		setCamera(0);
 	}
 
 
@@ -89,10 +89,9 @@ namespace SMSCoop {
 	// TODO: Cleanup
 	// TODO: Fix particles being clipped when outside viewport
 	void performCamerasOverhaul(CPolarSubCamera* camera, u32 param_1, JDrama::TGraphics* graphics) {
-	
 		TApplication* app = &gpApplication;
 		for (int i = getPlayerCount()-1; i >= 0; i--) {
-			if(i == getActivePerspective()) continue;
+			if(i == getActiveViewport()) continue;
 			CPolarSubCamera* pCamera = cameras[i];
 			setActiveMario(i);
 			setCamera(i);
@@ -100,7 +99,7 @@ namespace SMSCoop {
 			perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
 		}
 	
-		int i = getActivePerspective();
+		int i = getActiveViewport();
 		CPolarSubCamera* pCamera = cameras[i];
 		setActiveMario(i);
 		setCamera(i);
@@ -175,7 +174,7 @@ namespace SMSCoop {
 	// Description: overrides the gpCamera used for viewCalcSimple.
 	// This is used for e.g trees and such when transforming from world transform to view transform
 	CPolarSubCamera* getCamera() {
-		return cameras[getActivePerspective()];
+		return cameras[getActiveViewport()];
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8023d3c4, 0, 0, 0), getCamera);
 
@@ -187,16 +186,16 @@ namespace SMSCoop {
 	void CPolarSubCamera_StartDemoCamera_Override(CPolarSubCamera* p1Camera, char* filename, TVec3f* position, s32 param_3, f32 param_4, bool param_5) {
 
 		bool isShineDemoCamera = strcmp(filename, *cameraInside) == 0 || strcmp(filename, *cameraOutside) == 0;
-		if(isShineDemoCamera) {
-			setShineCutscene(true);
-		}
+		//if(isShineDemoCamera) {
+		//	setShineCutscene(true);
+		//}
 		
 		for (int i = 0; i < getPlayerCount(); i++) {
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
-			if(!isShineDemoCamera || (isShineGot() && getMarioThatPickedShine() == i)) {
+			//if(!isShineDemoCamera || (isShineGot() && getMarioThatPickedShine() == i)) {
 				setCamera(i);
 				camera->startDemoCamera(filename, position, param_3, param_4, param_5);
-			}
+			//}
 		}
 		setCamera(0);
 	}
