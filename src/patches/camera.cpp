@@ -18,8 +18,10 @@
 #include "players.hxx"
 #include "splitscreen.hxx"
 
+#define MARIO_COUNT 2
+
 namespace SMSCoop {
-	CPolarSubCamera* cameras[2];
+	CPolarSubCamera* cameras[MARIO_COUNT];
 
 	static TCameraMarioData* c1[4] = { 0, 0, 0, 0 }; // odd camera infor for -0x7110 0f sda
 	static u32 c2[4] = { 0, 0, 0, 0 }; // odd camera infor for -0x7108 0f sda

@@ -45,20 +45,13 @@ namespace SMSCoop {
             }
             gScreen2DViewport->perform(0x88, graphicsPointer);
         }
-        /*
-        TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
-    constexpr static const char *screen2DKey ="\x53\x63\x72\x65\x65\x6e\x20\x32\x44";
-        auto *nameref = TMarNameRefGen::getInstance()->getRootNameRef();
-        u16 keycode = JDrama::TNameRef::calcKeyCode(screen2DKey);
-        JDrama::TViewport* viewport2D = (JDrama::TViewport*)director->mPerformListGXPost->searchF(keycode, screen2DKey);
-        OSReport("Screen 2D %X\n", director->mPerformListGXPost->searchF(keycode, screen2DKey));*/
     }
 
     int getActiveViewport() {
         return perspective;
     }
 
-    // Description: Get's an instance of the screen viewport
+    // Description: Get's an instance of the 3d viewport
     // FIXME: Get this from name ref instead
     static void TNameRefGe_getNameRef_createViewport(JDrama::TViewport* viewport, JDrama::TRect* rect, const char* name) {
         gViewport = viewport;
@@ -66,7 +59,7 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802fb52c, 0, 0, 0), TNameRefGe_getNameRef_createViewport);
     
-    // Description: Get's an instance of the screen viewport
+    // Description: Get's an instance of the ui viewport
     // FIXME: Get this from name ref instead
     static void Create_screen2D_Viewport_initECDisplay(JDrama::TViewport* viewport, JDrama::TRect* rect, const char* name) {
         gScreen2DViewport = viewport;
@@ -82,24 +75,9 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802fcdc0, 0, 0, 0), TViewport_perform_setViewport);
 
-    //void TViewport_Screen2D_Rect(JUTRect* rect) {
-    //    rect->mY1 = 0;
-    //    rect->mY2 = 448;
-    //    if(perspective == 0) {
-    //        rect->mX1 = 0;
-    //        rect->mX2 = 320;
-    //    } else {
-    //        rect->mX1 = 320;
-    //        rect->mX2 = 640;
-    //    }
-    //}
-    //SMS_PATCH_BL(SMS_PORT_REGION(0x8029b4a4, 0, 0, 0), TViewport_Screen2D_Rect);
-
     // TODO: Rewrite this override EfbCtrlTex_perform instead and store a reference to the EfbCtrlTex that should
     // be changed to correct size. Checking the width is very hacky
     static void setTexCopySrcEfbTex(u16 left, u16 top, u16 wd, u16 ht) {
-        //OSReport("TexCopySrcEFB SHIT %d %d %d %d\n", left, top, wd, ht);
-
         if(wd == 640 && perspective == 0) {
             left = 0;
             wd = 320;
@@ -156,19 +134,17 @@ namespace SMSCoop {
         setCamera(0);
         setActiveMario(0);
 
-        //VIWaitForRetrace();
+        VIWaitForRetrace();
 
-        u32 flagsNoUpdate = 0xffffffff & ~0x1 & ~0x200;
-        
+        u32 flagsNoUpdate = 0xffffffff;
 
-        //director->mPerformListUIElements->testPerform(0xffffffff, graphicsPointer);
         director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
         director->mPerformListPostDraw->perform(flagsNoUpdate, graphicsPointer);
-        u32 flags = 0x1 | 0x2000000; // Update + goop stamp (freezes with goop stamps otherwise :c)
-        director->mPerformListUnk1->perform(flags, graphicsPointer);
-        director->mPerformListUnk2->perform(flags, graphicsPointer);
+        // Update + goop stamp (game freezes with goop stamps otherwise :c)
+        director->mPerformListUnk1->perform(0x1000000, graphicsPointer); // Need to do some preparation for goop maps
+        director->mPerformListUnk2->perform(0x20f0000, graphicsPointer); // Unsure exactly what happens, but this works without drawing a black square to the screen
         director->mPerformListGX->perform(flagsNoUpdate, graphicsPointer);
-        // TODO, based on some conditions
+        // FIXME should be based on some conditions, check direct in MarDirector
         director->mPerformListSilhouette->testPerform(0xffffffff, graphicsPointer);
         director->mPerformListGXPost->perform(flagsNoUpdate, graphicsPointer);
 
@@ -178,58 +154,64 @@ namespace SMSCoop {
         
         
         GXInvalidateTexAll(); 
-       /* OSReport("Ending p2 screen \n");
-        OSReport("---------------------\n");
-        OSReport("Content of GXPost\n");
-        OSReport("Testing %s \n", director->mPerformListGXPost->mKeyName);
-        for(JGadget::TSingleNodeLinkList::iterator begin = director->mPerformListGXPost->begin(); 
-            begin != director->mPerformListGXPost->end(); ) {
-            
-            JDrama::TViewObj* obj = (JDrama::TViewObj*)begin->mData;
-            OSReport("   Child: '%s' \n", obj->mKeyName);
+        //OSReport("Ending p2 screen \n");
+        //OSReport("---------------------\n");
+        //OSReport("Content of GXPost\n");
+        //OSReport("Testing %s \n", director->mPerformListUnk1->mKeyName);
+        //for(JGadget::TSingleNodeLinkList::iterator begin = director->mPerformListUnk1->begin(); 
+        //    begin != director->mPerformListUnk1->end(); ) {
+        //    
+        //    JDrama::TViewObj* obj = (JDrama::TViewObj*)begin->mData;
+        //    OSReport("   Child: '%s' \n", obj->mKeyName);
 
-            begin = begin->mNext;
-        }
-        OSReport("---------------------\n");*/
+        //    begin = begin->mNext;
+        //}
+        //OSReport("---------------------\n");
 
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x80299d04, 0, 0, 0), processGXInvalidateTexAll);
 
-    //static void performListUiElements(TPerformList* performList, u32 flags, JDrama::TGraphics* graphics) {
-    //    OSReport("Rendering ui \n");
-    //    //performList->testPerform(flags, graphics);
-    //}
-    //// Disable ui, we render this custom later
-    //SMS_PATCH_BL(SMS_PORT_REGION(0x80299b98, 0, 0, 0), performListUiElements);
+    // Bowserfight rendering
+    // This is all custom, which is very annoying
 
-    static void performListUiElements2(TPerformList* performList, u32 flags, JDrama::TGraphics* graphics) {
-        /*TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
-        director->mPerformListUIElements->perform(~0x2, graphicsPointer);
-        OSReport("Drawing p1 stuff %X \n");*/
-        performList->testPerform(flags, graphics);
+    // Description: 
+    // thusly we need to handle this shit manually...
+    void GXSetViewport_bathwater(f32 xOrig,f32 yOrig,f32 wd,f32 ht,f32 nearZ,f32 farZ) {
+        f32 xOffset = xOrig;
+        if(perspective == 1) {
+            xOffset = 320.0f;
+        }
+
+        GXSetViewport(xOffset, yOrig, 640.0f / 2.0f, ht, nearZ, farZ);
     }
-    //// Disable ui, we render this custom later
-    //SMS_PATCH_BL(SMS_PORT_REGION(0x80299c48, 0, 0, 0), performListUiElements2);
-    SMS_PATCH_BL(SMS_PORT_REGION(0x80299d00, 0, 0, 0), performListUiElements2);
-    //SMS_PATCH_BL(SMS_PORT_REGION(0x80299d00, 0, 0, 0), performListUiElements);
-    //
-    //static void performListUiElementss(TPerformList* performList, u32 flags, JDrama::TGraphics* graphics) {
-    //    OSReport("PRE DRAW FLAG %X \n", flags);
-    //    performList->testPerform(flags, graphics);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801ab0b4, 0, 0, 0), GXSetViewport_bathwater);
 
-    //    
-    //    
-    //    TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
-    //    
-    //    for(int i = 0; i < 4; ++i) {
-    //        u32 flags = 0;
-    //        if(i == 3) {
-    //            flags = 2;
-    //        }
-    //        director->mPerformListUIElements->testPerform(~flags, graphicsPointer);
-    //    }
-    //}
-    //// Disable ui, we render this custom later
-    //SMS_PATCH_BL(SMS_PORT_REGION(0x80299c20, 0, 0, 0), performListUiElementss);
+    // Description: Set source copy when copying bathwater from efb to screentexture
+    // We copy the part of the texture that the active viewport is rendering
+    void GXSetTexCopySrc_bathwater(u16 left, u16 top,u16 wd,u16 ht) {
+        u16 xOffset = left;
+        if(perspective == 1) {
+            xOffset = 320;
+        }
+
+        GXSetTexCopySrc(xOffset, top, wd, ht);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801acd98, 0, 0, 0), GXSetTexCopySrc_bathwater);
+
+    // Description: Sets render width for bathwater EFB
+    static unsigned int SMSGetGameRenderWidth_bathwater() { 
+		    return 320;
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801ac970, 0, 0, 0), SMSGetGameRenderWidth_bathwater);
+    
+    // Description: Set screen area for mist and bathwater reflection to render
+    void draw_mist(u32 x, u32 y, u32 wd, u32 ht, u32 unk) {
+        u32 xOffset = x;
+        if(perspective == 1) {
+            xOffset = 320;
+        }
+        draw_mist__FUsUsUsUsPv(xOffset, y, wd/2, ht, unk);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801ad6a8, 0, 0, 0), draw_mist);
 
 }

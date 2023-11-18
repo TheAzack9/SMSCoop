@@ -15,12 +15,14 @@
 #include "camera.hxx"
 #include "splitscreen.hxx"
 
+#define MARIO_COUNT 2
+
 static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 
 namespace SMSCoop {
 	static u8 loadedMarios = 0;
-	static TMario* marios[2];
+	static TMario* marios[MARIO_COUNT];
 	static bool isMarioCurrentlyLoadingViewObj = false;
 
 	void setActiveMario(int id) {
@@ -40,6 +42,10 @@ namespace SMSCoop {
 	
 	int getPlayerCount() {
 		return loadedMarios;
+	}
+
+	TMario* getMario(int id) {
+		return marios[id];
 	}
 	
 	// Description: Overrides mario loading to allow for loading a luigi game object in level
@@ -78,7 +84,7 @@ namespace SMSCoop {
 			memoryStream->readData(buffer, 73);
 
 			// Create marios and load them
-			for(int i = 0; i < 2; ++i) {
+			for(int i = 0; i < MARIO_COUNT; ++i) {
 				memoryStream->setBuffer(buffer, 73);
 				TMario* mario = (TMario*) response;
 				marios[i] = mario;
@@ -120,11 +126,11 @@ namespace SMSCoop {
 
 		marios[loadedMarios] = mario;
 	
-		if(loadedMarios == 1) {
+		if(loadedMarios >= 1) {
 			TApplication* app = &gpApplication;
-			app->mGamePads[1]->_E0 = 2;
-			mario->setGamePad(app->mGamePads[1]);
-			mario->mController = app->mGamePads[1];
+			app->mGamePads[loadedMarios]->_E0 = 2;
+			mario->setGamePad(app->mGamePads[loadedMarios]);
+			mario->mController = app->mGamePads[loadedMarios];
 		
 		}
 
@@ -140,7 +146,7 @@ namespace SMSCoop {
 	void TMarioGamePad_updateMeaning_override(TMarioGamePad* gamepad) {
 		TApplication* app = &gpApplication;
 		// A bit of a jank way to check if it is player 2 sadly
-		for(int i = 0; i < 4; ++i) {
+		for(int i = 0; i < MARIO_COUNT; ++i) {
 			if(loadedMarios > i && gamepad == app->mGamePads[i]) {
 				setActiveMario(i);
 				setCamera(i);
@@ -224,4 +230,52 @@ namespace SMSCoop {
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802983f8, 0, 0, 0), SetMario);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80298428, 0, 0, 0), SetMario);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802984d8, 0, 0, 0), SetMario);
+
+	
+	// Description: Replaces player throw function to override how TMarios are thrown
+	// Throw strength is based on a combination of airborn and how far the stick is pressed. 
+	// TODO: Research if this could be set as a player parameter instead of manually coded.
+	void OnMarioThrow(THitActor* thrownObject, TMario* mario, u32 message) {
+		float speed = mario->mControllerWork->mStickDist;
+		if(speed > 0.5f || mario->mState & TMario::State::STATE_AIRBORN) {
+			thrownObject->receiveMessage(mario, 7);
+		} else {
+			thrownObject->receiveMessage(mario, 8);
+		}
+
+		// Optimization: Could probably check if the held item is a TMario instead of interating through all players to find player
+		for (int i = 0; i < loadedMarios; i++){
+			TMario* thrownMario = marios[i];
+			if (thrownObject == (THitActor*)thrownMario){
+				TVec3f newPos = mario->mTranslation;
+				const f32 PI = 3.1415;
+				volatile float angle = 2.0f * PI * mario->mAngle.y / 65535.0f;
+				newPos.x += sinf(angle) * 120.0f;
+				newPos.z += cosf(angle) * 120.0f;
+
+				thrownMario->mTranslation = newPos;
+				thrownMario->mState = TMario::State::STATE_DIVE;
+				thrownMario->mAngle.y = mario->mAngle.y;
+
+
+				if(mario->mState & TMario::State::STATE_AIRBORN) {
+					thrownMario->setPlayerVelocity(25.0f + speed/1.75f);
+					thrownMario->mSpeed.y = 25.0f + speed/1.75f;
+				} else if(speed > 0.5f) {
+					thrownMario->setPlayerVelocity(10.0f + speed/3.0f);
+					thrownMario->mSpeed.y = 15.0f + speed/3.0f;
+				} else {
+					thrownMario->setPlayerVelocity(0.0f);
+					thrownMario->mSpeed.y = 0.0f;
+				}
+
+			}
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802437d0, 0, 0, 0), OnMarioThrow);
+
+	
+	// Description: Fix for luigi shadow. Basically there is a check whether shadow has been rendered This removes that check
+	// Optimization: Check for shadow individually between players
+	SMS_WRITE_32(SMS_PORT_REGION(0x80231834, 0, 0, 0), 0x60000000);
 }
