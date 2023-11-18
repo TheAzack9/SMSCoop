@@ -45,6 +45,7 @@ namespace SMSCoop {
             }
             gScreen2DViewport->perform(0x88, graphicsPointer);
         }
+
     }
 
     int getActiveViewport() {
@@ -72,6 +73,10 @@ namespace SMSCoop {
     static void TViewport_perform_setViewport(JDrama::TGraphics* graphics, JDrama::TRect& rect, f32 far, f32 near) { 
         graphicsPointer = graphics;
         graphics->setViewport(rect, far, near);
+        graphicsPointer->mViewPortSpace.mX1 = 0;
+        graphicsPointer->mViewPortSpace.mX2 = 640;
+        graphicsPointer->mViewPortSpace.mY1 = 0;
+        graphicsPointer->mViewPortSpace.mY2 = 448;
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802fcdc0, 0, 0, 0), TViewport_perform_setViewport);
 
@@ -198,11 +203,11 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801acd98, 0, 0, 0), GXSetTexCopySrc_bathwater);
 
-    // Description: Sets render width for bathwater EFB
-    static unsigned int SMSGetGameRenderWidth_bathwater() { 
+    static unsigned int SMSGetGameRenderWidth_320() { 
 		    return 320;
     }
-    SMS_PATCH_BL(SMS_PORT_REGION(0x801ac970, 0, 0, 0), SMSGetGameRenderWidth_bathwater);
+    // Description: Sets render width for bathwater EFB
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801ac970, 0, 0, 0), SMSGetGameRenderWidth_320);
     
     // Description: Set screen area for mist and bathwater reflection to render
     void draw_mist(u32 x, u32 y, u32 wd, u32 ht, u32 unk) {
@@ -214,4 +219,13 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801ad6a8, 0, 0, 0), draw_mist);
 
+    // Manta rendering
+    
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80110128, 0, 0, 0), GXSetTexCopySrc_bathwater);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80110114, 0, 0, 0), SMSGetGameRenderWidth_320);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80110134, 0, 0, 0), SMSGetGameRenderWidth_320);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801101e4, 0, 0, 0), SMSGetGameRenderWidth_320);
+    // Description: Sets render width for manta EFB
+    /*SMS_PATCH_BL(SMS_PORT_REGION(0x8010fc74, 0, 0, 0), SMSGetGameRenderWidth_320);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8010fca0, 0, 0, 0), SMSGetGameRenderWidth_320);*/
 }
