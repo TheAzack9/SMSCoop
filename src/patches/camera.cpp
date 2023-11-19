@@ -34,7 +34,7 @@ namespace SMSCoop {
 	void setCamera(int i) {
 		*gpCameraCoop = cameras[i];
 		// This is mario position lmao... 0x80025690
-		// This might not be necessary
+		// This is also some pre-computed camera stuff. Used in calculation of lens glow
 		*gpCameraMario = c1[i];
 		*gpCameraShake = (CPolarSubCamera*)c2[i];
 	}

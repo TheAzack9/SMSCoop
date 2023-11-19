@@ -10,6 +10,7 @@
 #include <JUtility/JUTTexture.hxx>
 #include <Dolphin/GX.h>
 #include <VI.h>
+#include <SMS/Camera/SunModel.hxx>
 
 #include "camera.hxx"
 #include "players.hxx"
@@ -20,6 +21,11 @@ namespace SMSCoop {
     JDrama::TGraphics* graphicsPointer;
     JDrama::TViewport* gViewport;
     JDrama::TViewport* gScreen2DViewport;
+
+    void* g_sun;
+    TSunModel* g_sunModel;
+    void* g_sunLensFlare;
+    void* g_sunLensGlow;
 
     int perspective = 1;
     
@@ -133,18 +139,34 @@ namespace SMSCoop {
         TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
         GXInvalidateTexAll(); 
         
-        
-        
         setViewport(0);
-        setCamera(0);
         setActiveMario(0);
+        setCamera(0);
 
         VIWaitForRetrace();
 
         u32 flagsNoUpdate = 0xffffffff;
-
+        // TODO: Create a custom perform list of things that must update before drawing on p2 screen
+        if(g_sun) {
+            perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
+        }
+        
         director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
         director->mPerformListPostDraw->perform(flagsNoUpdate, graphicsPointer);
+        
+        if(g_sunModel) {
+            calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
+            //g_sunModel->getZBufValue();
+            perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
+
+        }
+        if(g_sunLensGlow) {
+            perform__9TLensGlowFUlPQ26JDrama9TGraphics(g_sunLensGlow, 0x7, graphicsPointer);
+        }
+        if(g_sunLensFlare) {
+            perform__10TLensFlareFUlPQ26JDrama9TGraphics(g_sunLensFlare, 0x7, graphicsPointer);
+        }
+
         // Update + goop stamp (game freezes with goop stamps otherwise :c)
         director->mPerformListUnk1->perform(0x1000000, graphicsPointer); // Need to do some preparation for goop maps
         director->mPerformListUnk2->perform(0x20f0000, graphicsPointer); // Unsure exactly what happens, but this works without drawing a black square to the screen
@@ -159,19 +181,19 @@ namespace SMSCoop {
         
         
         GXInvalidateTexAll(); 
-        //OSReport("Ending p2 screen \n");
-        //OSReport("---------------------\n");
-        //OSReport("Content of GXPost\n");
-        //OSReport("Testing %s \n", director->mPerformListUnk1->mKeyName);
-        //for(JGadget::TSingleNodeLinkList::iterator begin = director->mPerformListUnk1->begin(); 
-        //    begin != director->mPerformListUnk1->end(); ) {
-        //    
-        //    JDrama::TViewObj* obj = (JDrama::TViewObj*)begin->mData;
-        //    OSReport("   Child: '%s' \n", obj->mKeyName);
+        OSReport("Ending p2 screen \n");
+        OSReport("---------------------\n");
+        OSReport("Content of GXPost\n");
+        OSReport("Testing %s \n", director->mPerformListPostDraw->mKeyName);
+        for(JGadget::TSingleNodeLinkList::iterator begin = director->mPerformListPostDraw->begin(); 
+            begin != director->mPerformListPostDraw->end(); ) {
+            
+            JDrama::TViewObj* obj = (JDrama::TViewObj*)begin->mData;
+            OSReport("   Child: '%s' \n", obj->mKeyName);
 
-        //    begin = begin->mNext;
-        //}
-        //OSReport("---------------------\n");
+            begin = begin->mNext;
+        }
+        OSReport("---------------------\n");
 
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x80299d04, 0, 0, 0), processGXInvalidateTexAll);
@@ -225,7 +247,37 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x80110114, 0, 0, 0), SMSGetGameRenderWidth_320);
     SMS_PATCH_BL(SMS_PORT_REGION(0x80110134, 0, 0, 0), SMSGetGameRenderWidth_320);
     SMS_PATCH_BL(SMS_PORT_REGION(0x801101e4, 0, 0, 0), SMSGetGameRenderWidth_320);
-    // Description: Sets render width for manta EFB
-    /*SMS_PATCH_BL(SMS_PORT_REGION(0x8010fc74, 0, 0, 0), SMSGetGameRenderWidth_320);
-    SMS_PATCH_BL(SMS_PORT_REGION(0x8010fca0, 0, 0, 0), SMSGetGameRenderWidth_320);*/
+
+    // Fix sun
+    void GXPeekZ_override(u16 x, u16 y, u32* z) {
+        int offsetX = x / 2;
+        if(perspective == 1) {
+            offsetX += 320;
+        }
+        GXPeekZ(offsetX, y, z);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8002eacc, 0, 0, 0), GXPeekZ_override);
+
+    void TSunMgr_perform_override(void* sunMgr, u32 performFlags, JDrama::TGraphics* graphics) {
+        g_sun = sunMgr;
+        perform__7TSunMgrFUlPQ26JDrama9TGraphics(sunMgr, performFlags, graphics);
+    }
+	SMS_WRITE_32(SMS_PORT_REGION(0x803ad180, 0, 0, 0), TSunMgr_perform_override);
+    void TSunModel_perform_override(TSunModel* sunModel, u32 performFlags, JDrama::TGraphics* graphics) {
+        g_sunModel = sunModel;
+        calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
+        g_sunModel->getZBufValue();
+        perform__9TSunModelFUlPQ26JDrama9TGraphics(sunModel, performFlags, graphics);
+    }
+	SMS_WRITE_32(SMS_PORT_REGION(0x803ad1c0, 0, 0, 0), TSunModel_perform_override);
+    void TLensGlow_perform_override(void* lensGlow, u32 performFlags, JDrama::TGraphics* graphics) {
+        g_sunLensGlow = lensGlow;
+        perform__9TLensGlowFUlPQ26JDrama9TGraphics(lensGlow, performFlags, graphics);
+    }
+	SMS_WRITE_32(SMS_PORT_REGION(0x803ad150, 0, 0, 0), TLensGlow_perform_override);
+    void TLensFlare_perform_override(void* lensFlare, u32 performFlags, JDrama::TGraphics* graphics) {
+        g_sunLensFlare = lensFlare;
+        perform__10TLensFlareFUlPQ26JDrama9TGraphics(lensFlare, performFlags, graphics);
+    }
+	SMS_WRITE_32(SMS_PORT_REGION(0x803ad128, 0, 0, 0), TLensFlare_perform_override);
 }
