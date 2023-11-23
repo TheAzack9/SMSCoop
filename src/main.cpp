@@ -22,6 +22,7 @@
 #include <System/RenderModeObj.hxx>
 
 #include "characters.hxx"
+#include "talking.hxx"
 
 const u8 gSaveBnr[] = {
     0x09, 0x00, 0x00, 0x60, 0x00, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0xf3, 0x00, 0x00, 0x0c, 0x20,
@@ -505,6 +506,7 @@ static void initModule() {
     
     BetterSMS::Game::registerBootCallback("Coop_debug_mode", setDebug);
     BetterSMS::Stage::registerInitCallback("SMSCoop_initCharacterArchivesCoop", SMSCoop::initCharacterArchives);
+    BetterSMS::Stage::registerInitCallback("SMSCoop_talking_reset", SMSCoop::resetTalking);
     SMSCoop::setSkinForPlayer(1, "/data/luigi.arc");
 
     // Display warning in game if memory not expanded

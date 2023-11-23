@@ -13,7 +13,7 @@ file(GLOB BETTER_MODULE_SRC
     "include/**/*.hxx"
 )
 
-add_executable(SunshineCoop ${BETTER_MODULE_SRC})
+add_executable(SunshineCoop ${BETTER_MODULE_SRC} "src/patches/talking.cpp")
 add_subdirectory(lib/BetterSunshineEngine)
 
 target_link_libraries(SunshineCoop PUBLIC BetterSunshineEngine)

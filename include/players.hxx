@@ -6,4 +6,5 @@ namespace SMSCoop {
 	int getPlayerCount();
 	void setActiveMario(int id);
 	TMario* getMario(int id);
+	int getClosestMarioId(TVec3f* position);
 }

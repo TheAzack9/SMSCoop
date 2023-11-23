@@ -14,6 +14,7 @@
 
 #include "camera.hxx"
 #include "players.hxx"
+#include "talking.hxx"
 
 // FIXME: Support horizontal split screen
 // FIXME: 3/4 perspectives?
@@ -150,6 +151,8 @@ namespace SMSCoop {
         if(g_sun) {
             perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
         }
+
+        TMarDirector_movement_game_override(director);
         
         director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
         director->mPerformListPostDraw->perform(flagsNoUpdate, graphicsPointer);

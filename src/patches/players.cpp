@@ -48,6 +48,13 @@ namespace SMSCoop {
 		return marios[id];
 	}
 	
+	int getClosestMarioId(TVec3f* position) {
+		float closest0 = PSVECSquareDistance((Vec*)position, (Vec*)&marios[0]->mTranslation);
+		if(loadedMarios == 1) return 0;
+		float closest1 = PSVECSquareDistance((Vec*)position, (Vec*)&marios[1]->mTranslation);
+		return closest0 > closest1;
+	}
+	
 	// Description: Overrides mario loading to allow for loading a luigi game object in level
 	// TODO: Make this optional based on setting
 	int TMarioStrCmp_Override(const char* nameRef, void* str) {
