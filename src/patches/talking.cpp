@@ -13,6 +13,7 @@
 #include "splitscreen.hxx"
 #include "camera.hxx"
 #include "talking.hxx"
+#include "ai.hxx"
 
 namespace SMSCoop {
 	int marioIdTalking = -1;
@@ -29,9 +30,11 @@ namespace SMSCoop {
 		return marioIdTalking != -1;
 	}
 
-	void handleTalking(TMarDirector* marDirector, THitActor* npc, u32 initiatingPlayer = 0) {
-		u8 initiatingTalking = *(u8*)((u32)marDirector + 0x126);
-		
+	int getTalkingPlayer() {
+		return marioIdTalking;
+	}
+
+	void checkTalking(TMarDirector* marDirector) {
 		bool someoneTalking = false;
 		for(int i = 0; i < getPlayerCount(); ++i) {
 			if(getMario(i)->mState == TMario::State::STATE_TALKING) {
@@ -46,6 +49,12 @@ namespace SMSCoop {
 			}
 		}
 
+	}
+
+	void handleTalking(TMarDirector* marDirector, THitActor* npc, u32 initiatingPlayer = 0) {
+		u8 initiatingTalking = *(u8*)((u32)marDirector + 0x126);
+
+		checkTalking(marDirector);
 
 		if(initiatingTalking && !isTalking()) {
 			marioIdTalking = initiatingPlayer;
@@ -63,6 +72,34 @@ namespace SMSCoop {
 			}
 		}
 	}
+
+	
+	void updateTalking(TMarDirector *director) {
+		bool someoneTalking = false;
+		for(int i = 0; i < getPlayerCount(); ++i) {
+			TMario* mario = getMario(i);
+			if(mario->mState == TMario::State::STATE_TALKING) {
+				someoneTalking = true;	
+			}
+
+			if(mario->mState != TMario::State::STATE_TALKING) {
+				*((u32*)&director->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+			}
+				
+		}
+			
+		if(!someoneTalking) {
+			marioIdTalking = -1;
+			for(int i = 0; i < getPlayerCount(); ++i) {
+				*((u32*)&director->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+			}
+		}
+
+		// Failsafe in case missed talking flag, then start talking with someone instead of softlocking.
+		if(!isTalking() && director->mTalkingNPC != nullptr) {
+			handleTalking(director, director->mTalkingNPC, getClosestMarioId(&director->mTalkingNPC->mTranslation));
+		}
+	}
 	
 	void TMarDirector_movement_game_override(TMarDirector* marDirector) {
 
@@ -72,8 +109,6 @@ namespace SMSCoop {
 			marDirector->mGamePads[0] = marDirector->mGamePads[getActiveViewport()];
 
 			u32* addressOfThing = marDirector->findNearestTalkNPC();
-
-			OSReport("Testing talk %d %X\n", getActiveViewport(), (u32)addressOfThing);
 
 			u32 frameMeaning = marDirector->mGamePads[0]->mFrameMeaning;
 			marDirector->mGamePads[0]->mFrameMeaning = marDirector->mGamePads[0]->mMeaning;
@@ -184,7 +219,6 @@ namespace SMSCoop {
 		int i = getActiveViewport();
 		TApplication *app      = &gpApplication;
 		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-		OSReport("Talking %d %d\n", isTalking(), marioIdTalking);
 		if(isTalking()) {
 
 			// Gamepad for progressing talking
@@ -212,12 +246,12 @@ namespace SMSCoop {
 	
 	// Make the enter M cutscene play on the correct screen
 	u8 updateGameMode(TMarDirector* marDirector) {
-  //      TMario* marioEnteringGate = getMarioEnteringGate();
-		//if(marioEnteringGate) {
-		//	int cm = getPlayerId(marioEnteringGate);
-		//	setActiveMario(cm);
-		//	setCamera(cm);
-		//}
+        TMario* marioEnteringGate = getMarioEnteringGate();
+		if(marioEnteringGate) {
+			int cm = getPlayerId(marioEnteringGate);
+			setActiveMario(cm);
+			setCamera(cm);
+		}
 		if(isTalking()) {
 			setActiveMario(marioIdTalking);
 			setCamera(marioIdTalking);

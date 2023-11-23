@@ -59,6 +59,13 @@ namespace SMSCoop {
         return perspective;
     }
 
+    void resetSplitScreen(TMarDirector* director) {
+        void* g_sun = nullptr;
+        TSunModel* g_sunModel = nullptr;
+        void* g_sunLensFlare = nullptr;
+        void* g_sunLensGlow = nullptr;
+    }
+
     // Description: Get's an instance of the 3d viewport
     // FIXME: Get this from name ref instead
     static void TNameRefGe_getNameRef_createViewport(JDrama::TViewport* viewport, JDrama::TRect* rect, const char* name) {
@@ -144,31 +151,31 @@ namespace SMSCoop {
         setActiveMario(0);
         setCamera(0);
 
-        VIWaitForRetrace();
+        //VIWaitForRetrace();
 
         u32 flagsNoUpdate = 0xffffffff;
         // TODO: Create a custom perform list of things that must update before drawing on p2 screen
-        if(g_sun) {
-            perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
-        }
+        //if(g_sun) {
+        //    perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
+        //}
 
         TMarDirector_movement_game_override(director);
         
         director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
         director->mPerformListPostDraw->perform(flagsNoUpdate, graphicsPointer);
-        
-        if(g_sunModel) {
-            calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
-            //g_sunModel->getZBufValue();
-            perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
+        //
+        //if(g_sunModel) {
+        //    calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
+        //    //g_sunModel->getZBufValue();
+        //    perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
 
-        }
-        if(g_sunLensGlow) {
-            perform__9TLensGlowFUlPQ26JDrama9TGraphics(g_sunLensGlow, 0x7, graphicsPointer);
-        }
-        if(g_sunLensFlare) {
-            perform__10TLensFlareFUlPQ26JDrama9TGraphics(g_sunLensFlare, 0x7, graphicsPointer);
-        }
+        //}
+        //if(g_sunLensGlow) {
+        //    perform__9TLensGlowFUlPQ26JDrama9TGraphics(g_sunLensGlow, 0x7, graphicsPointer);
+        //}
+        //if(g_sunLensFlare) {
+        //    perform__10TLensFlareFUlPQ26JDrama9TGraphics(g_sunLensFlare, 0x7, graphicsPointer);
+        //}
 
         // Update + goop stamp (game freezes with goop stamps otherwise :c)
         director->mPerformListUnk1->perform(0x1000000, graphicsPointer); // Need to do some preparation for goop maps
@@ -182,7 +189,7 @@ namespace SMSCoop {
         setActiveMario(1);
         setViewport(1);
         
-        
+        /*
         GXInvalidateTexAll(); 
         OSReport("Ending p2 screen \n");
         OSReport("---------------------\n");
@@ -196,7 +203,7 @@ namespace SMSCoop {
 
             begin = begin->mNext;
         }
-        OSReport("---------------------\n");
+        OSReport("---------------------\n");*/
 
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x80299d04, 0, 0, 0), processGXInvalidateTexAll);
