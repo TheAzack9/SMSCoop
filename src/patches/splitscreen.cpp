@@ -118,8 +118,8 @@ namespace SMSCoop {
 
     // Trying to figure out what each perform flag does
     // TViewObj also has dynamic check with 0xc (display flag)
-    // 0x1 = update
-    // 0x2 = update 2? (or ui update?)
+    // 0x1 = update game logic
+    // 0x2 = update animation (i think)
     // 0x4 = Some kind of FX?
     // 0x8 = draw?
     // 0x10 = after effects
@@ -155,19 +155,22 @@ namespace SMSCoop {
 
         u32 flagsNoUpdate = 0xffffffff;
         // TODO: Create a custom perform list of things that must update before drawing on p2 screen
-        //if(g_sun) {
-        //    perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
-        //}
+        if(g_sunModel) {
+            calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
+            //g_sunModel->getZBufValue();
+            perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
+        }
+
+        if(g_sun) {
+            perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
+        }
 
         TMarDirector_movement_game_override(director);
         
         director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
         director->mPerformListPostDraw->perform(flagsNoUpdate, graphicsPointer);
         //
-        //if(g_sunModel) {
-        //    calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
-        //    //g_sunModel->getZBufValue();
-        //    perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
+
 
         //}
         //if(g_sunLensGlow) {
@@ -290,4 +293,8 @@ namespace SMSCoop {
         perform__10TLensFlareFUlPQ26JDrama9TGraphics(lensFlare, performFlags, graphics);
     }
 	SMS_WRITE_32(SMS_PORT_REGION(0x803ad128, 0, 0, 0), TLensFlare_perform_override);
+
+    // Remove check for graphics on sun stare (enter noki) This might cause bugs...
+	SMS_WRITE_32(SMS_PORT_REGION(0x8002e308, 0, 0, 0), 0x60000000);
+
 }

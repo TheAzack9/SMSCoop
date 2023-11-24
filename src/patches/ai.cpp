@@ -55,4 +55,15 @@ namespace SMSCoop {
 		return result;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801eb28c, 0, 0, 0), TMario_receiveMessage_enterGate);
+
+	
+	void TBiancoGateKeeper_perform_override(TLiveActor* bgk, u32 perform_flags, JDrama::TGraphics* graphics) {
+		int marioId = getClosestMarioId(&bgk->mTranslation);
+		setActiveMario(marioId);
+		setCamera(marioId);
+		perform__17TBiancoGateKeeperFUlPQ26JDrama9TGraphics(bgk, perform_flags, graphics);
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803bb73c, 0, 0, 0), (u32)(&TBiancoGateKeeper_perform_override));
 }

@@ -187,7 +187,7 @@ namespace SMSCoop {
 				}
 			} else if (slice.mType == 2) {
 				u16 keyCode = JDrama::TNameRef::calcKeyCode((const char*)slice.mValue);
-				if(keyCode == getMario(i)->mKeyCode) {
+				if(keyCode == getMario(0)->mKeyCode) {
 					slice.mValue = (u32)getMario(playerIdPerFrame)->mKeyName;
 				}
 			}
