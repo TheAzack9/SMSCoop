@@ -11,6 +11,9 @@
 #include <Dolphin/GX.h>
 #include <VI.h>
 #include <SMS/Camera/SunModel.hxx>
+#include <SMS/Camera/CubeManagerBase.hxx>
+
+#include <BetterSMS/libs/global_list.hxx>
 
 #include "camera.hxx"
 #include "players.hxx"
@@ -23,6 +26,16 @@ namespace SMSCoop {
     JDrama::TViewport* gViewport;
     JDrama::TViewport* gScreen2DViewport;
 
+    struct BufferObj {
+        BufferObj(JDrama::TViewObj* obj, u32 flag) : m_obj(obj), m_flag(flag) {
+        }
+        JDrama::TViewObj* m_obj;
+        u32 m_flag;
+    };
+
+    static TPerformList* g_objectsToUpdate;
+    static BetterSMS::TGlobalList<BufferObj> g_performListBuffer;
+
     void* g_sun;
     TSunModel* g_sunModel;
     void* g_sunLensFlare;
@@ -31,7 +44,7 @@ namespace SMSCoop {
     int perspective = 1;
     
     // Description: Set active viewport for player
-    static void setViewport(int player) {
+    void setViewport(int player) {
         perspective = player;
         if(player == 0) {
             gViewport->mViewportRect.mX1 = 0;
@@ -64,7 +77,32 @@ namespace SMSCoop {
         TSunModel* g_sunModel = nullptr;
         void* g_sunLensFlare = nullptr;
         void* g_sunLensGlow = nullptr;
+
+        g_objectsToUpdate = nullptr;
+        //g_objectsToUpdate->Erase(g_objectsToUpdate->begin(), g_objectsToUpdate->end());
     }
+
+    void pushToPerformList(JDrama::TViewObj *obj, u32 flag) {
+        if(g_objectsToUpdate) {
+            g_objectsToUpdate->push_back(obj, flag);
+        } else {
+            g_performListBuffer.push_back(BufferObj(obj, flag));
+        }
+    }
+
+    int searchF_performList_movement(void* perfListGroup, u32 keyCode, char* name) {
+        u16 mkeyCode = JDrama::TNameRef::calcKeyCode("Player 2 PfLst");
+        g_objectsToUpdate = (TPerformList*)searchF__Q26JDrama55TNameRefPtrListT_Q(perfListGroup, mkeyCode, "Player 2 PfLst");
+
+        for(auto& obj : g_performListBuffer) {
+            g_objectsToUpdate->push_back(obj.m_obj, obj.m_flag);
+        }
+        g_performListBuffer.clear();
+
+        OSReport("I GOT HERE %X\n", g_objectsToUpdate);
+        return searchF__Q26JDrama55TNameRefPtrListT_Q(perfListGroup, keyCode, name);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x802b9404, 0, 0, 0), searchF_performList_movement);
 
     // Description: Get's an instance of the 3d viewport
     // FIXME: Get this from name ref instead
@@ -151,7 +189,7 @@ namespace SMSCoop {
         setActiveMario(0);
         setCamera(0);
 
-        //VIWaitForRetrace();
+        VIWaitForRetrace();
 
         u32 flagsNoUpdate = 0xffffffff;
         // TODO: Create a custom perform list of things that must update before drawing on p2 screen
@@ -166,6 +204,17 @@ namespace SMSCoop {
         }
 
         TMarDirector_movement_game_override(director);
+
+        s32 cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeArea, gpMarioPos);
+	    *(u32*)((u32)gpCubeArea + 0x1c) = cubeNo;
+        cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastA, gpMarioPos);
+	    *(u32*)((u32)gpCubeFastA + 0x1c) = cubeNo;
+        cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastB, gpMarioPos);
+	    *(u32*)((u32)gpCubeFastB + 0x1c) = cubeNo;
+        cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
+	    *(u32*)((u32)gpCubeFastC + 0x1c) = cubeNo;
+
+        g_objectsToUpdate->perform(0x1, graphicsPointer);
         
         director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
         director->mPerformListPostDraw->perform(flagsNoUpdate, graphicsPointer);
