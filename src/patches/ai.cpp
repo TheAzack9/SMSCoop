@@ -177,6 +177,8 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b04f4, 0, 0, 0), (u32)(&THamuKuri_perform_override));
 	// TRocket / pinna rockets
 	SMS_WRITE_32(SMS_PORT_REGION(0x803bcbc0, 0, 0, 0), (u32)(&THamuKuri_perform_override));
+	// TBossDangoHamuKuri / Stackin stus base
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b0164, 0, 0, 0), (u32)(&THamuKuri_perform_override));
 	
 	// gooble / name kuri
 	void TNameKuri_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
@@ -752,7 +754,58 @@ namespace SMSCoop {
 		}
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b772c, 0, 0, 0), (u32)(&TTamaNoko_perform_override));
+
+	// TDangoHamuKuri / Stackin stus
+	void TDangoHamuKuri_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+
+		perform__14TDangoHamuKuriFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b032c, 0, 0, 0), (u32)(&TDangoHamuKuri_perform_override));
 	
+	// Fire chain chomp (pianta 1)
+	void TFireWanwan_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+
+		perform__11TFireWanwanFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b3fa8, 0, 0, 0), (u32)(&TFireWanwan_perform_override));
+	
+	// Boss chain chomp (pianta 1)
+	void TBossWanwan_perform_override(TSpineEnemy* enemy, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&enemy->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+
+		perform__11TBossWanwanFUlPQ26JDrama9TGraphics(enemy, performFlags, graphics);
+		
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b6198, 0, 0, 0), (u32)(&TBossWanwan_perform_override));
+
 	// Description: Makes merrygoround check all players
 	int merryGoRoundMarioCheck = 0;
 	void TMerrygoround_control_override(void* merrygoround) {
@@ -794,7 +847,7 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801c3500, 0, 0, 0), TMapObjBase_marioHeadAttack_brickBlock_override);
 	
-	
+	// Fix moving blocks and things in secret
 	bool TRailMapObj_checkMarioRiding_override(TRailMapObj* mapObj) {
 		for(int i = 0; i < getPlayerCount(); ++i) {
 			setActiveMario(i);
@@ -811,7 +864,7 @@ namespace SMSCoop {
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801f095c, 0, 0, 0), TRailMapObj_checkMarioRiding_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801dfc30, 0, 0, 0), TRailMapObj_checkMarioRiding_override);
 
-
+	// Pinna rail region 
 	// Fix pinna rail y-cam
 	void TCameraBck_setFrame(void* cameraBck, f32 param_1) {
 		OSReport("Setting cameraBck frame to %f \n", param_1 + 1238.0 * jetcoasterDemoCallbackCamera);
@@ -926,4 +979,7 @@ namespace SMSCoop {
 		return result;
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803bcb9c, 0, 0, 0), (u32)(&TNerveRocketPossessedNozzle_execute));
+
+	// End pinna rail region
+
 }

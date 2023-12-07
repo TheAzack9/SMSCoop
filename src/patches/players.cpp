@@ -197,9 +197,10 @@ namespace SMSCoop {
 				}
 			}
 		}
+		// Enable movement
+		// TODO: Figure out where this is properly set... Might cause unexpected consequences
+		gamepad->mState._06 = gpApplication.mGamePads[0]->mState._06;
 		updateMeaning__13TMarioGamePadFv(gamepad);
-		gamepad->mState.mDisable = app->mGamePads[0]->mState.mDisable;
-		gamepad->mState.mReadInput = app->mGamePads[0]->mState.mReadInput;
 		if(loadedMarios > 0) {
 			u8 currentId = getActiveViewport();
 			setActiveMario(currentId);
