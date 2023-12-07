@@ -28,6 +28,7 @@
 #include "splitscreen.hxx"
 #include "subArea.hxx"
 #include "surfGesso.hxx"
+#include "yoshi.hxx"
 
 const u8 gSaveBnr[] = {
     0x09, 0x00, 0x00, 0x60, 0x00, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0xf3, 0x00, 0x00, 0x0c, 0x20,
@@ -516,6 +517,7 @@ static void initModule() {
     BetterSMS::Stage::registerInitCallback("SMSCoop_ai_reset", SMSCoop::resetAi);
     BetterSMS::Stage::registerInitCallback("SMSCoop_subArea_reset", SMSCoop::resetUpSubArea);
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateTalking", SMSCoop::updateTalking);
+    BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateYoshi", SMSCoop::updateYoshi);
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateShine", SMSCoop::updateShineTimer);
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateSurfGesso", SMSCoop::updateSurfGesso);
     BetterSMS::Stage::registerInitCallback("SMSCoop_resetShineLogic", SMSCoop::resetShineLogic);
@@ -536,6 +538,7 @@ static void deinitModule() {
     BetterSMS::Stage::deregisterInitCallback("SMSCoop_ai_reset");
     BetterSMS::Stage::deregisterInitCallback("SMSCoop_subArea_reset");
     BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateTalking");
+    BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateYoshi");
     BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateShine");
     BetterSMS::Stage::deregisterUpdateCallback("SMSCoop_updateSurfGesso");
     BetterSMS::Stage::deregisterInitCallback("SMSCoop_resetShineLogic");

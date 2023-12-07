@@ -67,33 +67,5 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x801fa7f8, 0, 0, 0), 0x60000000);
 	SMS_WRITE_32(SMS_PORT_REGION(0x801440c4, 0, 0, 0), 0x60000000);
 	
-    // Description: RenderWidth of the SMS screen
-    // We need to Update this to half width in order for shaders to render properly
-    // This is due to some shaders using the previous frame and thusly this value to render
-    // NOTE: This is only called when creating the textures and must be changed before level load
-    // FIXME: Switch between full screen and half screen when in level vs cutscenes.
-
-    // TODO: Fix widescreen bug here
-    //static unsigned int SMSGetGameRenderWidth() { 
-		  //  return 320;
-    //}
-    //SMS_PATCH_B(SMS_PORT_REGION(0x801abecc, 0, 0, 0), SMSGetGameRenderWidth);
-    //SMS_PATCH_B(SMS_PORT_REGION(0x801abf40, 0, 0, 0), SMSGetGameRenderWidth);
-    //SMS_PATCH_B(SMS_PORT_REGION(0x801ac69c, 0, 0, 0), SMSGetGameRenderWidth);
-    //SMS_PATCH_B(SMS_PORT_REGION(0x801ac940, 0, 0, 0), SMSGetGameRenderWidth);
-    //SMS_PATCH_B(SMS_PORT_REGION(0x801ac970, 0, 0, 0), SMSGetGameRenderWidth);
-    //SMS_PATCH_B(SMS_PORT_REGION(0x801adeb4, 0, 0, 0), SMSGetGameRenderWidth);
-    //SMS_PATCH_B(SMS_PORT_REGION(0x801ae5ac, 0, 0, 0), SMSGetGameRenderWidth);
-
-
-
-
-    //static unsigned int SMSGetGameRenderHeight() {
-	   // if(isSplitscreen() && !isVerticalSplit()) {
-		  //  return 224;
-	   // }
-	   // return 448;
-    //}
-    //SMS_PATCH_B(SMS_PORT_REGION(0x802a8bc8, 0, 0, 0), SMSGetGameRenderHeight);
 
 }

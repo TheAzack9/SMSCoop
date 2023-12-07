@@ -81,8 +81,8 @@ namespace SMSCoop {
 		}
 		*gpCameraMario = c1[0];
 		SDAstoreword(-0x7108, c2[0]);
-		setActiveMario(0);
-		setCamera(0);
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
 	}
 
 
@@ -117,6 +117,7 @@ namespace SMSCoop {
 			*gpCameraMario = c1[i];
 			*gpCameraShake = (CPolarSubCamera*)c2[i];
 			loadAfter__15CPolarSubCameraFv(cameras[i]);
+
 		}
 		*gpCameraMario = c1[0];
 		*gpCameraShake = (CPolarSubCamera*)c2[0];
@@ -124,6 +125,7 @@ namespace SMSCoop {
 		CPolarSubCamera* originalCam = cameras[0];
 		for (int i = 1; i < getPlayerCount(); i++) {
 			cameras[i]->mProjectionAspect = originalCam->mProjectionAspect;
+			
 		}
 	}
 

@@ -27,7 +27,6 @@ namespace SMSCoop {
 	}
 
 	void changeWarp(TJointObj* obj, u8 player) {
-		OSReport("Changing warp for %d %X\n", player, obj);
 		if(awakenedObjects[player]) {
 			awakenedObjects[player]->sleep();
 		}

@@ -19,16 +19,13 @@ namespace SMSCoop {
 		int playerCount = getPlayerCount();
 		for(int i = 0; i < playerCount; ++i) {
 			int activeMario = 1-i;
-			/*
-			if(gSplitScreenSetting.getInt() == SplitScreenSetting::NONE) {
-				activeMario = 0;
-			}*/
+
 			// Only happens if no mario
-			if(activeMario > playerCount) activeMario = 0;
+			if(activeMario >= playerCount) activeMario = 0;
 			setActiveMario(activeMario);
 			loadAfter__15TMapWireManagerFv(wireManager);
 		}
-		setActiveMario(0);
+		setActiveMario(getActiveViewport());
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c1cd0, 0, 0, 0), (u32)(&TMapWireManager_loadAfter));
 

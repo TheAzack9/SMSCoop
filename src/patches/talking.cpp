@@ -108,8 +108,6 @@ namespace SMSCoop {
 			TMarioGamePad* p1Gamepad = marDirector->mGamePads[0];
 			marDirector->mGamePads[0] = marDirector->mGamePads[getActiveViewport()];
 
-			u32* addressOfThing = marDirector->findNearestTalkNPC();
-
 			u32 frameMeaning = marDirector->mGamePads[0]->mFrameMeaning;
 			marDirector->mGamePads[0]->mFrameMeaning = marDirector->mGamePads[0]->mMeaning;
 			
@@ -123,7 +121,6 @@ namespace SMSCoop {
 			marDirector->mGamePads[0]->mFrameMeaning = frameMeaning;
 			marDirector->mGamePads[0] = p1Gamepad;
 		} else {
-			movement_game__12TMarDirectorFv(marDirector);
 
 		}
 	}

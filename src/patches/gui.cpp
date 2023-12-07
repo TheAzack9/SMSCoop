@@ -93,4 +93,69 @@ namespace SMSCoop {
 	}
 	// Override vtable
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c0324, 0, 0, 0), (u32)(&TGCConsole2_perform_override));
+
+	u8 pausingPlayer = 0;
+	static bool checkIfPauseMenu() {
+		TMarDirector *director;
+		SMS_FROM_GPR(31, director);
+		
+		if(director->mAreaID == 15) return false;
+
+		bool openMenu = false;
+
+		for(int i = 0; i < getPlayerCount(); ++i) {
+			TMario* mario = getMario(i);
+			u32 attributes = *(u32*)&mario->mAttributes;
+
+			if((attributes & 0x1000) != 0) continue;
+			if((mario->mState & 0x800) != 0) continue;
+			const JUTGamePad::CButton &buttons = mario->mController->mButtons;
+			if((buttons.mFrameInput & TMarioGamePad::Z) != 0) continue;
+			if((buttons.mFrameInput & TMarioGamePad::START) == 0) continue;
+			openMenu = true;
+			pausingPlayer = i;
+			OSReport("Menu was opened by %d \n", pausingPlayer);
+		}
+
+		return openMenu;
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80297A48, 0, 0, 0), checkIfPauseMenu);
+	SMS_WRITE_32(SMS_PORT_REGION(0x80297A4C, 0, 0, 0), 0x28030000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x80297a64, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x80297a6c, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x80297a78, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x80297a88, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x80297a9c, 0, 0, 0), 0x60000000);
+
+	void TPauseMenu2_perform_override(u32* pauseMenu, u32 performFlags, JDrama::TGraphics* graphics) {
+		
+        TApplication *app      = &gpApplication;
+        TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+
+		//u32 state = *(u32*)&director->mGamePads[pausingPlayer]->mState;
+
+		director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
+		*(TMarioGamePad**)(pauseMenu + 0x10c / 4) = director->mGamePads[pausingPlayer];
+
+		perform__11TPauseMenu2FUlPQ26JDrama9TGraphics(pauseMenu, performFlags, graphics);
+		*(TMarioGamePad**)(pauseMenu + 0x10c / 4) = director->mGamePads[0];
+		//*(u32*)&director->mGamePads[pausingPlayer]->mState = state;
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803c0570, 0, 0, 0), (u32)(&TPauseMenu2_perform_override));
+	
+	void TCardSave_perform_override(u32* cardSave, u32 performFlags, JDrama::TGraphics* graphics) {
+		
+        TApplication *app      = &gpApplication;
+        TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+
+		//u32 state = *(u32*)&director->mGamePads[pausingPlayer]->mState;
+
+		director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
+		*(TMarioGamePad**)(cardSave + 0x270 / 4) = director->mGamePads[pausingPlayer];
+
+		perform__9TCardSaveFUlPQ26JDrama9TGraphics(cardSave, performFlags, graphics);
+		*(TMarioGamePad**)(cardSave + 0x270 / 4) = director->mGamePads[0];
+		//*(u32*)&director->mGamePads[pausingPlayer]->mState = state;
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803c07c0, 0, 0, 0), (u32)(&TCardSave_perform_override));
 }

@@ -112,7 +112,7 @@ namespace SMSCoop {
 	// We check that both players are close enough to the shine to collect it. This is to balance the game a bit and not allow just one player to make it to the shine
 	// TODO: Make optional for other mods
 	void TShine_touchPlayer_override(TMapObjBase* shine, THitActor* mario) {
-		OSReport("Is shine Got %d, talking player %d address of shine got %d\n", isShineGot(), getTalkingPlayer(), hasGottenShine);
+		//OSReport("Is shine Got %d, talking player %d address of shine got %d\n", isShineGot(), getTalkingPlayer(), hasGottenShine);
 		if(isShineGot() || isTalking()) return;
 
 		for(int i = 0; i < getPlayerCount(); ++i) {

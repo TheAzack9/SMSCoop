@@ -5,4 +5,5 @@
 namespace SMSCoop {
 	void updateShineTimer(TMarDirector* marDirector);
 	void resetShineLogic(TMarDirector* marDirector);
+	bool isShineGot();
 }

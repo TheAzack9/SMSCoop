@@ -14,6 +14,7 @@
 #include "characters.hxx"
 #include "camera.hxx"
 #include "splitscreen.hxx"
+#include "shine.hxx"
 
 #define MARIO_COUNT 2
 
@@ -21,16 +22,45 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 
 namespace SMSCoop {
+	typedef struct {
+		TVec3f startPosition;
+		u16 marioAngle;
+		TVec3f cameraPosition;
+		s16 cameraHorizontalAngle;
+	} SpawnData;
+	static SpawnData spawnData[MARIO_COUNT];
+
 	static u8 loadedMarios = 0;
 	static TMario* marios[MARIO_COUNT];
 	static bool isMarioCurrentlyLoadingViewObj = false;
 
 	void setActiveMario(int id) {
+		if(id > loadedMarios) return;
 		TMario* mario = marios[id];
 		gpMarioOriginal = mario;
 		*gpMarioForCallBackCoop = mario;
 		*gpMarioOriginalCoop = mario;
 		SMS_SetMarioAccessParams__Fv();
+	}
+	
+	int isSingleplayerLevel() {
+        TApplication *app      = &gpApplication;
+        TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+		
+        if (app == nullptr || app->mContext != TApplication::CONTEXT_DIRECT_STAGE ) {
+            return true;
+        }
+
+        if (director == nullptr || (director->mCurState == TMarDirector::STATE_GAME_STARTING)) {
+            return true;
+        }
+
+        // intro / option level
+        if (director->mAreaID == 15) {
+            return true;
+        }
+
+		return false;
 	}
 	
 	u8 getPlayerId(TMario* mario) {
@@ -45,12 +75,13 @@ namespace SMSCoop {
 	}
 
 	TMario* getMario(int id) {
+		if(id > loadedMarios) return marios[0];
 		return marios[id];
 	}
 	
 	int getClosestMarioId(TVec3f* position) {
-		float closest0 = PSVECSquareDistance((Vec*)position, (Vec*)&marios[0]->mTranslation);
 		if(loadedMarios == 1) return 0;
+		float closest0 = PSVECSquareDistance((Vec*)position, (Vec*)&marios[0]->mTranslation);
 		float closest1 = PSVECSquareDistance((Vec*)position, (Vec*)&marios[1]->mTranslation);
 		return closest0 > closest1;
 	}
@@ -66,7 +97,7 @@ namespace SMSCoop {
 		return isMarioCheck;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029d7d8, 0, 0, 0), TMarioStrCmp_Override);
-
+	 
 	// Description: We hook into the load to get a pointer to TViewObjPtrListT to be able to add viewObjs manually
 	JDrama::TViewObjPtrListT<THitActor,JDrama::TViewObj>* mario_viewObjPtrList = 0;
 	void JDrama_TViewObjPtrListT_load(JDrama::TViewObjPtrListT<THitActor,JDrama::TViewObj>* viewObjPtrList,JSUMemoryInputStream *param_1) {
@@ -92,6 +123,7 @@ namespace SMSCoop {
 
 			// Create marios and load them
 			for(int i = 0; i < MARIO_COUNT; ++i) {
+				if(isSingleplayerLevel() && i > 0) break;
 				memoryStream->setBuffer(buffer, 73);
 				TMario* mario = (TMario*) response;
 				marios[i] = mario;
@@ -139,10 +171,13 @@ namespace SMSCoop {
 			mario->setGamePad(app->mGamePads[loadedMarios]);
 			mario->mController = app->mGamePads[loadedMarios];
 		
+			mario->mJumpParams.mRotateJumpForceY.set( 70 * 1.2);
+			mario->mJumpParams.mSecJumpForce.set(52 * 1.2);
+			mario->mJumpParams.mUltraJumpForce.set(75 * 1.2);
 		}
 
 		setActiveMarioArchive(loadedMarios);
-		setActiveMario(0);
+		setActiveMario(getActiveViewport());
 		loadedMarios++;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80276BF0, 0, 0, 0), loadMario);
@@ -152,17 +187,24 @@ namespace SMSCoop {
 	// IMPROVEMENT: I should just re-implement the entire loop at 0x80299a24 which is what calls this instead
 	void TMarioGamePad_updateMeaning_override(TMarioGamePad* gamepad) {
 		TApplication* app = &gpApplication;
-		// A bit of a jank way to check if it is player 2 sadly
-		for(int i = 0; i < MARIO_COUNT; ++i) {
-			if(loadedMarios > i && gamepad == app->mGamePads[i]) {
-				setActiveMario(i);
-				setCamera(i);
+		
+		if(!isSingleplayerLevel()) {
+			// A bit of a jank way to check if it is player 2 sadly
+			for(int i = 0; i < MARIO_COUNT; ++i) {
+				if(loadedMarios > i && gamepad == app->mGamePads[i]) {
+					setActiveMario(i);
+					setCamera(i);
+				}
 			}
 		}
 		updateMeaning__13TMarioGamePadFv(gamepad);
-		u8 currentId = getActiveViewport();
-		setActiveMario(currentId);
-		setCamera(currentId);
+		gamepad->mState.mDisable = app->mGamePads[0]->mState.mDisable;
+		gamepad->mState.mReadInput = app->mGamePads[0]->mState.mReadInput;
+		if(loadedMarios > 0) {
+			u8 currentId = getActiveViewport();
+			setActiveMario(currentId);
+			setCamera(currentId);
+		}
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80299a84, 0, 0, 0), TMarioGamePad_updateMeaning_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a6024, 0, 0, 0), TMarioGamePad_updateMeaning_override);
@@ -209,28 +251,34 @@ namespace SMSCoop {
 			marios[i]->mTranslation.z += offsetZ;
 
 			// Start p2 about half way through mecha bowser fight
-			//if(i > 0) {
-			//	TMario* mario = marios[i];
-			//	if(mario->mPinnaRail) {
-			//		J3DFrameCtrl* ctrl = mario->mPinnaRail->getFrameCtrl(0);
-			//		ctrl->mCurFrame = 1238;
-			//	}
+			if(i > 0) {
+				TMario* mario = marios[i];
+				if(mario->mPinnaRail) {
+					J3DFrameCtrl* ctrl = mario->mPinnaRail->getFrameCtrl(0);
+					ctrl->mCurFrame = 1238;
 
-			//	if(mario->mKoopaRail) {
-			//		J3DFrameCtrl* ctrl = mario->mKoopaRail->getFrameCtrl(0);
-			//		ctrl->mCurFrame = 1238;
-			//	}
-			//}
+					MActor* cameraBck = *(MActor**)((u32)getCameraById(i) + 0x2b0);
+					setFrame__10TCameraBckFf(cameraBck, 1238.0);
+					OSReport("Setting rail camera \n");
+				}
+
+				if(mario->mKoopaRail) {
+					J3DFrameCtrl* ctrl = mario->mKoopaRail->getFrameCtrl(0);
+					ctrl->mCurFrame = 1238;
+
+					MActor* cameraBck = *(MActor**)((u32)getCameraById(i) + 0x2b0);
+					setFrame__10TCameraBckFf(cameraBck, 1238.0);
+					OSReport("Setting rail camera \n");
+				}
+			}
 
 
-			//
-			//CPolarSubCamera* camera = getCameraById(i);
-			//spawnData[i].startPosition = marios[i]->mTranslation;
-			//spawnData[i].marioAngle = marios[i]->mRotation.y;
-			//spawnData[i].cameraPosition = camera->mTranslation;
-			//spawnData[i].cameraHorizontalAngle = camera->mHorizontalAngle;
-			//spawnData[i].shouldRespawn = false;
-			//spawnData[i].levelIsRestarting = false;
+			
+			CPolarSubCamera* camera = getCameraById(i);
+			spawnData[i].startPosition = marios[i]->mTranslation;
+			spawnData[i].marioAngle = marios[i]->mRotation.y;
+			spawnData[i].cameraPosition = camera->mTranslation;
+			spawnData[i].cameraHorizontalAngle = camera->mHorizontalAngle;
 		}
 
 	}
@@ -285,4 +333,206 @@ namespace SMSCoop {
 	// Description: Fix for luigi shadow. Basically there is a check whether shadow has been rendered This removes that check
 	// Optimization: Check for shadow individually between players
 	SMS_WRITE_32(SMS_PORT_REGION(0x80231834, 0, 0, 0), 0x60000000);
+
+	
+
+	// Fix tree collision
+	SMS_WRITE_32(SMS_PORT_REGION(0x801f6cc4, 0, 0, 0), 0x60000000);
+
+	// Fix cloud collision
+	SMS_WRITE_32(SMS_PORT_REGION(0x801dfc1c, 0, 0, 0), 0x60000000);
+
+	
+	#define MarioFlagId_Lives 0x20001
+
+	void loserExecOverride(TMario* mario) {
+		if(isShineGot()) return;
+		int lives = TFlagManager::smInstance->getFlag(MarioFlagId_Lives);
+		if(lives <= 0) {
+			for(int i = 0; i < loadedMarios; ++i) {
+				marios[i]->loserExec();
+			}
+			TFlagManager::smInstance->setFlag(MarioFlagId_Lives, 4);
+			return;
+		}
+
+		TFlagManager::smInstance->decFlag(MarioFlagId_Lives, 1);
+		int marioId = getPlayerId(mario);
+		
+		//for(int i = 0; i < 2; ++i) {
+		//	//OSReport("Offset %X\n", (u32)(((u32*)consoles[i]+ 0x70/4)) - (u32)consoles[i]);
+		//	*(u16*)(((u32*)consoles[i]+ 0x70/4)) = 200;
+		//	startAppearMario__11TGCConsole2Fb(consoles[i], true);
+		//}
+
+		SpawnData* marioSpawnData = &spawnData[marioId];
+
+		CPolarSubCamera* camera = getCameraById(marioId);
+		mario->mHealth = 8;
+		mario->mWaterHealth = 8.0;
+		// camera->position = marioSpawnData->cameraPosition;
+		// camera->position.y += 1000.0f;
+		mario->warpRequest(marioSpawnData->startPosition, spawnData[marioId].marioAngle);
+		mario->mTranslation = marioSpawnData->startPosition;
+		mario->mRotation.y = spawnData[marioId].marioAngle;
+		mario->mSpeed.set(0, 0, 0);
+		mario->setPlayerVelocity(0.0f);
+		camera->mHorizontalAngle = spawnData[marioId].cameraHorizontalAngle;
+		camera->mInterpolateDistance = 0.0;
+		camera->JSGSetViewPosition((Vec&)marioSpawnData->cameraPosition);
+		camera->mTranslation.y = mario->mTranslation.y + 200.0f;
+		camera->JSGSetViewTargetPosition((Vec&)mario->mTranslation);
+		camera->warpPosAndAt(camera->mInterpolateDistance, spawnData[marioId].cameraHorizontalAngle);
+		mario->changePlayerStatus(0x0000088C, 0, false);
+
+		// TODO: Better way to refill water?
+		mario->mFludd->mCurrentWater = 0x2710;
+		//mario->warpOut();
+		mario->setAnimation(0xc3, 1.0);
+		mario->changePlayerStatus(0x1337, 0x200, true);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80030ff0, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802438c8, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024390c, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024b280, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024b2f8, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024f808, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802527cc, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80252874, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8025a1e0, 0, 0, 0), loserExecOverride);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028aef0, 0, 0, 0), loserExecOverride);
+	// Technically a changePlayerStatus
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8024fba0, 0, 0, 0), loserExecOverride);
+	
+	// Stop game overs
+	SMS_WRITE_32(SMS_PORT_REGION(0x8024fb6c, 0, 0, 0), 0x60000000);
+
+	// Remove loosing lives
+	SMS_WRITE_32(SMS_PORT_REGION(0x80298814, 0, 0, 0), 0x60000000);
+
+	
+	int TMario_CanTake_Override(TMario* mario, THitActor* object) {
+		// Check if player is already holding the object
+		// This is to ensure game doesn't crash when e.g SM and mario tries to drag blooper at the same time
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+
+			if(marios[i]->mHeldObject == object) return 0;
+		}
+
+
+		return mario->canTake(object);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281604, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281b44, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281d94, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281e78, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80281f88, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802820f0, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802821f8, 0, 0, 0), TMario_CanTake_Override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80282238, 0, 0, 0), TMario_CanTake_Override);
+
+	// Warp all marios in case of warpMario sunscript
+	
+	void SMS_MarioWarpRequest(double param_1, TVec3f position) {
+		int currentPlayer = getPlayerId(gpMarioOriginal);
+		for(int i = 0; i < getPlayerCount(); ++i) {
+			setActiveMario(i);
+			getMario(i)->warpRequest(position, param_1);
+
+			f32 offset = -75.0f + 150.0f * i;
+			volatile float angle = 2.0f * 3.1415 * marios[i]->mAngle.y / 65535.0f - 3.1415/2.0;
+			f32 offsetX = sin(angle) * offset;
+			f32 offsetZ = cos(angle) * offset;
+			marios[i]->mTranslation.x += offsetX;
+			marios[i]->mTranslation.z += offsetZ;
+
+		}
+		setActiveMario(currentPlayer);
+	}
+	SMS_PATCH_B(SMS_PORT_REGION(0x802736d4, 0, 0, 0), SMS_MarioWarpRequest);
+
+	// Set diving helm when set from sunscript
+	void TMario_setDivHelm(TMario* mario) {
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+			marios[i]->setDivHelm();
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028d21c, 0, 0, 0), TMario_setDivHelm);
+
+	
+	// Set nozzle when set from sunscript
+	void TMario_changeNozzle(TWaterGun* watergun, TWaterGun::TNozzleType nozzleType, bool param_2) {
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+			marios[i]->mFludd->changeNozzle(nozzleType, param_2);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028d230, 0, 0, 0), TMario_changeNozzle);
+	
+	
+	
+	// Set sunglass when set from sunscript
+	void TMario_wearGlass(TMario* mario) {
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+			marios[i]->wearGlass();
+			
+			bool shineFlag = TFlagManager::smInstance->getShineFlag('w');
+			if(shineFlag) {
+				*(u32*)(&marios[i]->mAttributes) |= 0x100000;
+			}
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028adf0, 0, 0, 0), TMario_wearGlass);
+
+	
+	// Set sunglass when set from sunscript
+	void TMario_takeOffGlass(TMario* mario) {
+		for (int i = 0; i < loadedMarios; i++){
+			if (marios[i] == 0)
+				continue;
+			marios[i]->takeOffGlass();
+			bool shineFlag = TFlagManager::smInstance->getShineFlag('w');
+			if(shineFlag) {
+				*(u32*)(&marios[i]->mAttributes) &= 0xffefffff;
+			}
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028ae2c, 0, 0, 0), TMario_takeOffGlass);
+	
+	int previousFluddNozzle[2];
+	void TFlagManager_setFlag_fluddNozzle(TFlagManager* flagManger, u32 flagId, s32 flagValue) {
+		
+		for (int i = 0; i < loadedMarios; i++){
+			int nozzle = marios[i]->mFludd->mSecondNozzle;
+			if(nozzle == 3) nozzle = 4;
+			previousFluddNozzle[i] = nozzle;
+		}
+
+		flagManger->setFlag(flagId, flagValue);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80297990, 0, 0, 0), TFlagManager_setFlag_fluddNozzle);
+	
+	s32 TFlagManager_getFlag_fluddNozzle(TFlagManager* flagManger, u32 flagId) {
+		int id = getPlayerId(gpMarioOriginal);
+		return previousFluddNozzle[id];
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80298b38, 0, 0, 0), TFlagManager_getFlag_fluddNozzle);
+	
+	
+	void TItem_touchPlayer(TItem* item, THitActor* mario) {
+		if(item->mKeyCode != 53611) {
+			item->taken(mario);
+		} else if(!((TMario*)mario)->mAttributes.mHasFludd) {
+			item->taken(mario);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801bf328, 0, 0, 0), TItem_touchPlayer);
+
 }
