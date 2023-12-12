@@ -114,7 +114,7 @@ namespace SMSCoop {
 			if((buttons.mFrameInput & TMarioGamePad::START) == 0) continue;
 			openMenu = true;
 			pausingPlayer = i;
-			OSReport("Menu was opened by %d \n", pausingPlayer);
+			//OSReport("Menu was opened by %d \n", pausingPlayer);
 		}
 
 		return openMenu;
@@ -144,12 +144,15 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c0570, 0, 0, 0), (u32)(&TPauseMenu2_perform_override));
 	
 	void TCardSave_perform_override(u32* cardSave, u32 performFlags, JDrama::TGraphics* graphics) {
-		
+		if(isSingleplayerLevel()) {
+			perform__9TCardSaveFUlPQ26JDrama9TGraphics(cardSave, performFlags, graphics);
+			return;
+		}
         TApplication *app      = &gpApplication;
         TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
 		//u32 state = *(u32*)&director->mGamePads[pausingPlayer]->mState;
-
+		
 		director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
 		*(TMarioGamePad**)(cardSave + 0x270 / 4) = director->mGamePads[pausingPlayer];
 

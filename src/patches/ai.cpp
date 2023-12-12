@@ -10,6 +10,9 @@
 #include "camera.hxx"
 #include "splitscreen.hxx"
 
+#define MARIO_COUNT 2
+bool* sMantaEscapeFromMario = (bool*)0x8040db40;
+
 namespace SMSCoop {
 	TMario* marioEnteringGate = nullptr;
 	bool hasTriggeredMechaBowserCutscene = false;
@@ -82,14 +85,13 @@ namespace SMSCoop {
 	
 	// Fixes Petey (Boss Pakkun) swallow not triggering when petey is not facing both players
 	void TBPHeadHit_receiveMessage(JDrama::TPlacement* bpHead, THitActor* sender, u32 message) {
-		int currentMario = getPlayerId(gpMarioOriginal);
 		int closestMario = getClosestMarioId(&bpHead->mTranslation);
 
 		setActiveMario(closestMario);
 
 		receiveMessage__10TBPHeadHitFP9THitActorUl(bpHead, sender, message);
 
-		setActiveMario(currentMario);
+		setActiveMario(getActiveViewport());
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b4870, 0, 0, 0), (u32)(&TBPHeadHit_receiveMessage));
 	
@@ -179,6 +181,16 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803bcbc0, 0, 0, 0), (u32)(&THamuKuri_perform_override));
 	// TBossDangoHamuKuri / Stackin stus base
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b0164, 0, 0, 0), (u32)(&THamuKuri_perform_override));
+	// TDebuTelesa / sleepy boo (/ fat boo aparently)
+	SMS_WRITE_32(SMS_PORT_REGION(0x803bf1f8, 0, 0, 0), (u32)(&THamuKuri_perform_override));
+	// TMoePuku / fire fish
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b4b18, 0, 0, 0), (u32)(&THamuKuri_perform_override));
+	// TBubble / bubbles from king boo
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b80f0, 0, 0, 0), (u32)(&THamuKuri_perform_override));
+	// TIgaiga / goop balls
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b6b68, 0, 0, 0), (u32)(&THamuKuri_perform_override));
+	// TBombhei / bob-ombs
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b8658, 0, 0, 0), (u32)(&THamuKuri_perform_override));
 	
 	// gooble / name kuri
 	void TNameKuri_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
@@ -377,6 +389,59 @@ namespace SMSCoop {
 		setActiveMario(getActiveViewport());
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803cc8b0, 0, 0, 0), (u32)(&TLeafBoatRotten_control));
+	
+	// Fix fire trap
+	void TLampTrapIron_control_override(JDrama::TPlacement* lampTrapIron) {
+		int marioId = getClosestMarioId(&lampTrapIron->mTranslation);
+		setActiveMario(marioId);
+		setCamera(marioId);
+		control__13TLampTrapIronFv(lampTrapIron);
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d7fa8, 0, 0, 0), (u32)(&TLampTrapIron_control_override));
+
+	void TLampTrapIronHit_perform_override(JDrama::TPlacement* lampTrapIronHit, u32 flags, JDrama::TGraphics* graphics) {
+		int marioId = getClosestMarioId(&lampTrapIronHit->mTranslation);
+		setActiveMario(marioId);
+		setCamera(marioId);
+		perform__16TLampTrapIronHitFUlPQ26JDrama9TGraphics(lampTrapIronHit, flags, graphics);
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d8064, 0, 0, 0), (u32)(&TLampTrapIronHit_perform_override));
+	
+	// Fix spike trap
+	void TLampTrapSpike_control_override(JDrama::TPlacement* lampTrapSpike) {
+		int marioId = getClosestMarioId(&lampTrapSpike->mTranslation);
+		setActiveMario(marioId);
+		setCamera(marioId);
+		control__14TLampTrapSpikeFv(lampTrapSpike);
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d81b0, 0, 0, 0), (u32)(&TLampTrapSpike_control_override));
+
+	void TLampTrapSpikeHit_perform_override(JDrama::TPlacement* lampTrapSpikeHit, u32 flags, JDrama::TGraphics* graphics) {
+		int marioId = getClosestMarioId(&lampTrapSpikeHit->mTranslation);
+		setActiveMario(marioId);
+		setCamera(marioId);
+		perform__17TLampTrapSpikeHitFUlPQ26JDrama9TGraphics(lampTrapSpikeHit, flags, graphics);
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d826c, 0, 0, 0), (u32)(&TLampTrapSpikeHit_perform_override));
+
+	// Fix fire
+	void TEffectObjBase_moveObj_override(JDrama::TPlacement* effectObjBase) {
+		int marioId = getClosestMarioId(&effectObjBase->mTranslation);
+		setActiveMario(marioId);
+		setCamera(marioId);
+		moveObject__14TEffectObjBaseFv(effectObjBase);
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803ae1bc, 0, 0, 0), (u32)(&TEffectObjBase_moveObj_override));
 
 	// Fix leaf boats
 	TMario* marioControllingLeaf = nullptr;
@@ -704,6 +769,23 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b8944, 0, 0, 0), (u32)(&TCannon_perform_override));
 
 	
+	// TBossTelesa / King boo
+	void TBossTeleasa_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+
+		perform__11TBossTelesaFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b7b3c, 0, 0, 0), (u32)(&TBossTeleasa_perform_override));
+	
 	// TElecCarapace / Electrokoopa shell
 	void TElecCarapace_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
 		if(performFlags & 0x1) {
@@ -867,7 +949,7 @@ namespace SMSCoop {
 	// Pinna rail region 
 	// Fix pinna rail y-cam
 	void TCameraBck_setFrame(void* cameraBck, f32 param_1) {
-		OSReport("Setting cameraBck frame to %f \n", param_1 + 1238.0 * jetcoasterDemoCallbackCamera);
+		//OSReport("Setting cameraBck frame to %f \n", param_1 + 1238.0 * jetcoasterDemoCallbackCamera);
 		setFrame__10TCameraBckFf(cameraBck, param_1 + 1238.0 * jetcoasterDemoCallbackCamera);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80025c68, 0, 0, 0), TCameraBck_setFrame);
@@ -981,5 +1063,45 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803bcb9c, 0, 0, 0), (u32)(&TNerveRocketPossessedNozzle_execute));
 
 	// End pinna rail region
+	
+	bool mantaEscapesFrom[MARIO_COUNT];
+	// Fixes manta escape
+	void TBossMantaManager_updateMantaEscape(void* bossMantaManager) {
+		
+		bool shouldEscape = true;
+		for(int i = 0; i < getPlayerCount(); ++i) {
+			setActiveMario(i);
+			updateMantaEscape__17TBossMantaManagerFv(bossMantaManager);
+			mantaEscapesFrom[i] = *sMantaEscapeFromMario;
 
+			if(!(*sMantaEscapeFromMario)) {
+				shouldEscape = false;
+			}
+		}
+
+		*sMantaEscapeFromMario = shouldEscape;
+		setActiveMario(getActiveViewport());
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8010fe18, 0, 0, 0), TBossMantaManager_updateMantaEscape);
+	
+	void TBossManta_perform(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			if(mantaEscapesFrom[marioId]){
+				for(int i = 0; i < getPlayerCount(); ++i) {
+					if(!mantaEscapesFrom[i]) marioId = i;
+				}
+			}
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+		perform__11TSpineEnemyFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	// TBossManta / Manta
+	SMS_WRITE_32(SMS_PORT_REGION(0x803bd1bc, 0, 0, 0), (u32)(&TBossManta_perform));
 }

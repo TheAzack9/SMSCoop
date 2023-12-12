@@ -20,6 +20,8 @@
 
 static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
+static u8* isThpInit = (u8*)0x803ec206;
+static u8* ThpState = (u8*)0x803ec204;
 
 namespace SMSCoop {
 	typedef struct {
@@ -47,13 +49,18 @@ namespace SMSCoop {
         TApplication *app      = &gpApplication;
         TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 		
-        if (app == nullptr || app->mContext != TApplication::CONTEXT_DIRECT_STAGE ) {
+        if (app == nullptr || app->mContext != TApplication::CONTEXT_DIRECT_STAGE) {
             return true;
         }
 
-        if (director == nullptr || (director->mCurState == TMarDirector::STATE_GAME_STARTING)) {
+        if (director == nullptr) {
             return true;
         }
+		
+		// Cutscene
+	    if(*ThpState == 2 && *isThpInit == 0) {
+		    return true;
+	    }
 
         // intro / option level
         if (director->mAreaID == 15) {
@@ -260,7 +267,7 @@ namespace SMSCoop {
 
 					MActor* cameraBck = *(MActor**)((u32)getCameraById(i) + 0x2b0);
 					setFrame__10TCameraBckFf(cameraBck, 1238.0);
-					OSReport("Setting rail camera \n");
+					//OSReport("Setting rail camera \n");
 				}
 
 				if(mario->mKoopaRail) {
@@ -269,7 +276,7 @@ namespace SMSCoop {
 
 					MActor* cameraBck = *(MActor**)((u32)getCameraById(i) + 0x2b0);
 					setFrame__10TCameraBckFf(cameraBck, 1238.0);
-					OSReport("Setting rail camera \n");
+					//OSReport("Setting rail camera \n");
 				}
 			}
 
@@ -281,7 +288,8 @@ namespace SMSCoop {
 			spawnData[i].cameraPosition = camera->mTranslation;
 			spawnData[i].cameraHorizontalAngle = camera->mHorizontalAngle;
 		}
-
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802983f8, 0, 0, 0), SetMario);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80298428, 0, 0, 0), SetMario);
@@ -360,6 +368,7 @@ namespace SMSCoop {
 		TFlagManager::smInstance->decFlag(MarioFlagId_Lives, 1);
 		int marioId = getPlayerId(mario);
 		
+		mario->dropObject();
 		//for(int i = 0; i < 2; ++i) {
 		//	//OSReport("Offset %X\n", (u32)(((u32*)consoles[i]+ 0x70/4)) - (u32)consoles[i]);
 		//	*(u16*)(((u32*)consoles[i]+ 0x70/4)) = 200;
@@ -387,7 +396,7 @@ namespace SMSCoop {
 		mario->changePlayerStatus(0x0000088C, 0, false);
 
 		// TODO: Better way to refill water?
-		mario->mFludd->mCurrentWater = 0x2710;
+		mario->mFludd->mCurrentWater = mario->mFludd->mNozzleList[mario->mFludd->mCurrentNozzle]->mEmitParams.mAmountMax.get();
 		//mario->warpOut();
 		mario->setAnimation(0xc3, 1.0);
 		mario->changePlayerStatus(0x1337, 0x200, true);
@@ -437,7 +446,6 @@ namespace SMSCoop {
 	// Warp all marios in case of warpMario sunscript
 	
 	void SMS_MarioWarpRequest(double param_1, TVec3f position) {
-		int currentPlayer = getPlayerId(gpMarioOriginal);
 		for(int i = 0; i < getPlayerCount(); ++i) {
 			setActiveMario(i);
 			getMario(i)->warpRequest(position, param_1);
@@ -450,9 +458,11 @@ namespace SMSCoop {
 			marios[i]->mTranslation.z += offsetZ;
 
 		}
-		setActiveMario(currentPlayer);
+		setActiveMario(getActiveViewport());
 	}
-	SMS_PATCH_B(SMS_PORT_REGION(0x802736d4, 0, 0, 0), SMS_MarioWarpRequest);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8028a9f4, 0, 0, 0), SMS_MarioWarpRequest);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x801a0994, 0, 0, 0), SMS_MarioWarpRequest);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8018fc2c, 0, 0, 0), SMS_MarioWarpRequest);
 
 	// Set diving helm when set from sunscript
 	void TMario_setDivHelm(TMario* mario) {

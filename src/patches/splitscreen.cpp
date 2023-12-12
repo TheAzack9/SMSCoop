@@ -22,13 +22,10 @@
 #include "players.hxx"
 #include "talking.hxx"
 
-Mtx* j3dSysPtr = (Mtx*)0x80405fb0;
-
 // FIXME: Support horizontal split screen
 // FIXME: 3/4 perspectives?
 namespace SMSCoop {
     JDrama::TGraphics* graphicsPointer;
-    JDrama::TViewport* gViewportMirror;
     JDrama::TViewport* gViewport;
     JDrama::TViewport* gScreen2DViewport;
 
@@ -113,7 +110,6 @@ namespace SMSCoop {
     // Description: Get's an instance of the 3d viewport
     // FIXME: Get this from name ref instead
     static void TNameRefGe_getNameRef_createViewport(JDrama::TViewport* viewport, JDrama::TRect* rect, const char* name) {
-        gViewportMirror = gViewport;
         gViewport = viewport;
         __ct__Q26JDrama9TViewportFRCQ26JDrama5TRectPCc(viewport, rect, name);
     }
@@ -241,15 +237,15 @@ namespace SMSCoop {
             //VIWaitForRetrace();
 
             // TODO: Create a custom perform list of things that must update before drawing on p2 screen
-            if(g_sunModel) {
-                calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
-                //g_sunModel->getZBufValue();
-                perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
-            }
+            //if(g_sunModel) {
+            //    calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
+            //    //g_sunModel->getZBufValue();
+            //    perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
+            //}
 
-            if(g_sun) {
-                perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
-            }
+            //if(g_sun) {
+            //    perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
+            //}
 
             TMarDirector_movement_game_override(director);
 
