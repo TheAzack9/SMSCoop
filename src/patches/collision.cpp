@@ -144,13 +144,14 @@ namespace SMSCoop {
 	// Description: Fixes all touch interactions with closest mario
 	// E.g door 
 	void TMapBaseObj_touchActor_override(void *a,THitActor *hitActor) {
+		int currentMario = getPlayerId(gpMarioOriginal);
 		int marioId = getClosestMarioId(&hitActor->mTranslation);
 		setActiveMario(marioId);
 		setCamera(marioId);
 		touchActor__11TMapObjBaseFP9THitActor(a, hitActor);
 		//perform__8TBaseNPCFUlPQ26JDrama9TGraphics(npc, perform_flags, graphics);
-		setActiveMario(getActiveViewport());
-		setCamera(getActiveViewport());
+		setActiveMario(currentMario);
+		setCamera(currentMario);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801aef14, 0, 0, 0), TMapBaseObj_touchActor_override);
 	SMS_WRITE_32(SMS_PORT_REGION(0x803df8a4, 0, 0, 0), (u32)(&TMapBaseObj_touchActor_override));

@@ -9,6 +9,7 @@
 #include "players.hxx"
 #include "camera.hxx"
 #include "splitscreen.hxx"
+#include "yoshi.hxx"
 
 #define MARIO_COUNT 2
 bool* sMantaEscapeFromMario = (bool*)0x8040db40;
@@ -138,7 +139,32 @@ namespace SMSCoop {
 		}
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803be6dc, 0, 0, 0), (u32)(&TAmenbo_perform_override));
-
+	
+	// Yoshi goop thingys
+	void TSeal_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+		perform__5TSealFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803bbc94, 0, 0, 0), (u32)(&TSeal_perform_override));
+	
+	u32 TSeal_receiveMessage_override(JDrama::TPlacement* placement, THitActor* actor, u32 flag) {
+		int marioId = getClosestMarioId(&placement->mTranslation);
+		TMario* closestMario = getMario(marioId);
+		setWaterColorForMario(closestMario);
+		u32 result = receiveMessage__5TSealFP9THitActorUl(placement, actor, flag);
+		setWaterColorForMario(gpMarioOriginal);
+		return result;
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803bbd14, 0, 0, 0), (u32)(&TSeal_receiveMessage_override));
 	
 	// strollin stu / hamu kuri
 	void THamuKuri_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
@@ -481,6 +507,7 @@ namespace SMSCoop {
 
 			if(!marioIsOn__11TMapObjBaseCFv(muddyBoat) || !marioControllingBoat->mFludd->isEmitting()) {
 				marioControllingBoat = nullptr;
+				OSReport("Removing controlling mario %d\n", controllingMario);
 			}
 		}
 
@@ -490,10 +517,12 @@ namespace SMSCoop {
 				setActiveMario(i);
 				if(marioIsOn__11TMapObjBaseCFv(muddyBoat) && mario->mFludd->isEmitting()) {
 					marioControllingBoat = mario;
+					OSReport("setting controlling mario %d\n", i);
 					break;
 				}
 			}
 		}
+		OSReport("Mario controlling boat %X %X \n", marioControllingBoat, gpMarioOriginal);
 		control__10TMuddyBoatFv(muddyBoat);
 
 		setActiveMario(getActiveViewport());
@@ -689,7 +718,25 @@ namespace SMSCoop {
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b661c, 0, 0, 0), (u32)(&TChuuHana_perform_override));
 	
-	// ChuHana / Plungelos (gelato 2)
+	// Mirror in gelato 2
+	void TLeanMirror_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+
+		perform__11TMapObjBaseFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		 
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803cf7b0, 0, 0, 0), (u32)(&TLeanMirror_perform_override));
+	
+
+	// TabePuku 
 	void TTabePuku_behaveToWater_override(JDrama::TPlacement* placement, THitActor* actor) {
 		int marioId = getClosestMarioId(&placement->mTranslation);
 		setActiveMario(marioId);
@@ -786,6 +833,41 @@ namespace SMSCoop {
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b7b3c, 0, 0, 0), (u32)(&TBossTeleasa_perform_override));
 	
+	
+	
+	// TMapObjBall / Durians
+	void TMapObjBall_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+
+		perform__14TMapObjGeneralFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d2db4, 0, 0, 0), (u32)(&TMapObjBall_perform_override));
+	
+	// TMapObjBall / Durians
+	void TResetFruit_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+
+		perform__11TResetFruitFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803d2bc4, 0, 0, 0), (u32)(&TResetFruit_perform_override));
+
 	// TElecCarapace / Electrokoopa shell
 	void TElecCarapace_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
 		if(performFlags & 0x1) {

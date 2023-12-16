@@ -39,16 +39,19 @@ namespace SMSCoop {
 	
 	// Description: Switch between which mario is active when updating TBathWaterManager
 	// Reason: Allow p2 to collide with bathwater
+	int activePlayer = 0;
 	void TBathWaterManager_perform_override(void* tBathwaterManager, u32 param_1, void* tGraphics) {
 		// is updating and not draw	
 		if((param_1 & 1) != 0) {
 			int ap = getActiveViewport();
+			int activePlayerViewport = activePlayer / 4;
 			for(int i = 0; i < getPlayerCount(); ++i) {
-				if(i == ap) continue;
+				if(i == activePlayerViewport) continue;
 				setActiveMario(i);
 				perform__17TBathWaterManagerFUlPQ26JDrama9TGraphics(tBathwaterManager, param_1, tGraphics);
 			}
-			setActiveMario(ap);
+			setActiveMario(activePlayerViewport);
+			activePlayer = (activePlayer + 1) % (getPlayerCount() * 4);
 			perform__17TBathWaterManagerFUlPQ26JDrama9TGraphics(tBathwaterManager, param_1, tGraphics);
 			// Ensure that primary mario is set correct again
 		} else {

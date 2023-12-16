@@ -21,6 +21,7 @@
 #include "camera.hxx"
 #include "players.hxx"
 #include "talking.hxx"
+#include "yoshi.hxx"
 
 // FIXME: Support horizontal split screen
 // FIXME: 3/4 perspectives?
@@ -123,11 +124,17 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8029b4b4, 0, 0, 0), Create_screen2D_Viewport_initECDisplay);
     //
-    //// Description: Update mirror camera to be corret player
-    //static void TMirrorCamera_constructor_override(JDrama::TViewObj* mirrorCamera, char* name) {
-    //    __ct__13TMirrorCameraFPCc(mirrorCamera, name);    
-    //    pushToPerformList(mirrorCamera, 0x14);
-    //}
+    // Description: Update mirror camera to be corret player
+    static void TMirrorCamera_constructor_override(JDrama::TViewObj* mirrorCamera, char* name) {
+        __ct__13TMirrorCameraFPCc(mirrorCamera, name);    
+        pushToPerformList(mirrorCamera, 0x14);
+    }
+
+    static void TSky_load_override(JDrama::TViewObj* sky, void* memStream) {
+        load__4TSkyFR20JSUMemoryInputStream(sky, memStream);
+        pushToPerformList(sky, 0x2);
+    }
+	SMS_WRITE_32(SMS_PORT_REGION(0x803c2020, 0, 0, 0), (u32)(&TSky_load_override));
 
     // Description: Sets the viewport, mostly used to get graphics pointer pt
     // FIXME: Get Graphics pointer in a better way
@@ -170,14 +177,21 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8022d4d0, 0, 0, 0), TScreenTexture_load_ct_JUTTexture);
 
+    
+
     // Description: Add a perform to other players, fixing reflection camera.
 	void TMirrorModelManager_load_override(JDrama::TViewObj* mirrorModelManager, void* memStream) {
         load__19TMirrorModelManagerFR20JSUMemoryInputStream(mirrorModelManager, memStream);
-		pushToPerformList(mirrorModelManager, 0x1);
+		pushToPerformList(mirrorModelManager, 0x3);
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c19ac, 0, 0, 0), (u32)&TMirrorModelManager_load_override);
 
-
+    
+	void TMirrorActor_load_override(JDrama::TViewObj* mirrorActor, void* memStream) {
+        load__Q26JDrama8TNameRefFR20JSUMemoryInputStream(mirrorActor, memStream);
+		pushToPerformList(mirrorActor, 0x3);
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803da5e0, 0, 0, 0), (u32)&TMirrorActor_load_override);
  //   void TMario_calcView_override(TMario* mario, JDrama::TGraphics* graphics) {
  //       Mtx j3dSysCopy;
  //       PSMTXCopy(*j3dSysPtr, j3dSysCopy);
@@ -229,6 +243,7 @@ namespace SMSCoop {
             setViewport(0);
             setActiveMario(0);
             setCamera(0);
+            setWaterColorForMario(gpMarioOriginal);
      /*       u32 retraceCount = VIGetRetraceCount() / 2;
             do {
                 OSSleepThread(&retraceQueue);
@@ -258,7 +273,11 @@ namespace SMSCoop {
             cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
 	        *(u32*)((u32)gpCubeFastC + 0x1c) = cubeNo;
 
-            g_objectsToUpdate->perform(0x1, graphicsPointer);
+            // Simulate quarter frames lmao.
+            // Fixes Cube streams
+            for(int i = 0; i < 4; ++i) {
+                g_objectsToUpdate->perform(0x3, graphicsPointer);
+            }
         
             director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
             director->mPerformListPostDraw->perform(0xffffffff, graphicsPointer);
@@ -284,6 +303,7 @@ namespace SMSCoop {
             setCamera(1);
             setActiveMario(1);
             setViewport(1);
+            setWaterColorForMario(gpMarioOriginal);
         }
         
         GXInvalidateTexAll(); 

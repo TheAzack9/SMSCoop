@@ -216,8 +216,66 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80299a84, 0, 0, 0), TMarioGamePad_updateMeaning_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a6024, 0, 0, 0), TMarioGamePad_updateMeaning_override);
-
 	
+
+	int buttonsPressedWhileHeld[MARIO_COUNT];
+	int prevButtons[MARIO_COUNT];
+	float prevStickAngle[MARIO_COUNT];
+
+
+	TMario* IsHeld(TMario* mario) {
+		for(int i = 0; i < loadedMarios; ++i) {
+			if(marios[i]->mHeldObject == mario) return marios[i];
+		}
+		return 0;
+	}
+	
+	// Feature: Escape when held
+	// Description: Keeps track of button presses while player is held, if it is above 30 then release the player
+	void SimulateEscapeHeld(TMario* mario) {
+		int playerIdx = mario == marios[0] ? 0 : 1;
+		TMario* heldBy = IsHeld(mario);
+
+		float lAnalogX = gpApplication.mGamePads[playerIdx]->mControlStick.mStickX;
+		float lAnalogY = gpApplication.mGamePads[playerIdx]->mControlStick.mStickY;
+		float angle = atan2f(lAnalogY, lAnalogX) + M_PI;
+
+		// PI/2 - 0 = 3/2PI, real diff is PI/2
+		float angleDiff = fabs(prevStickAngle[playerIdx] - angle);
+		angleDiff = atan2f(sinf(angleDiff), cosf(angleDiff));
+
+		if(
+			heldBy != 0 && 
+			(
+				(prevButtons[playerIdx] != gpApplication.mGamePads[playerIdx]->mFrameMeaning && gpApplication.mGamePads[playerIdx]->mFrameMeaning != 0) 
+				// If stick moved more than a 12th of a circle since last frame
+				|| angleDiff > 0.6
+			)
+		) {
+			buttonsPressedWhileHeld[playerIdx]++;
+			TVec3f temp;
+			temp.x = 0.5f;
+			temp.y = 0.5f;
+			temp.z = 0.5f;
+		
+			mario->startVoice(0x788f);
+			SMS_EasyEmitParticle_2(8, &(mario->mTranslation), mario, &temp);
+			SMS_EasyEmitParticle_2(9, &(mario->mTranslation), mario, &temp);
+		}
+		if(heldBy == 0) {
+			buttonsPressedWhileHeld[playerIdx] = 0;
+		}
+
+
+		prevButtons[playerIdx] = gpApplication.mGamePads[playerIdx]->mFrameMeaning;
+		prevStickAngle[playerIdx] = angle;
+
+		if(buttonsPressedWhileHeld[playerIdx] > 15) {
+			heldBy->dropObject();
+		}
+	}
+
+
 	// Description: set correct camera and player before player update to make player move after correct camera
 	#define perform__6TMarioFUlPQ26JDrama9TGraphics         ((int (*)(...))0x8024D2A8)
 	void TMario_perform_coop(TMario* mario, u32 param_1, JDrama::TGraphics* param_2) {
@@ -229,7 +287,7 @@ namespace SMSCoop {
 
 		perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
 
-		//SimulateEscapeHeld(mario);
+		SimulateEscapeHeld(mario);
 		if(param_1 & 0x1) {
 			u8 currentId = getActiveViewport();
 			setActiveMario(currentId);
@@ -347,7 +405,7 @@ namespace SMSCoop {
 
 	// Fix tree collision
 	SMS_WRITE_32(SMS_PORT_REGION(0x801f6cc4, 0, 0, 0), 0x60000000);
-
+	
 	// Fix cloud collision
 	SMS_WRITE_32(SMS_PORT_REGION(0x801dfc1c, 0, 0, 0), 0x60000000);
 
@@ -384,6 +442,7 @@ namespace SMSCoop {
 		// camera->position.y += 1000.0f;
 		mario->warpRequest(marioSpawnData->startPosition, spawnData[marioId].marioAngle);
 		mario->mTranslation = marioSpawnData->startPosition;
+		mario->mTranslation.y += 100.0;
 		mario->mRotation.y = spawnData[marioId].marioAngle;
 		mario->mSpeed.set(0, 0, 0);
 		mario->setPlayerVelocity(0.0f);
