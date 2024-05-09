@@ -8,12 +8,16 @@
 #include <JSystem/JDrama/JDRGraphics.hxx>
 #include <JSystem/JDrama/JDRRect.hxx>
 #include <JSystem/JDrama/JDRViewport.hxx>
+#include <SMS/Strategic/ObjHitCheck.hxx>
 #include <JUtility/JUTTexture.hxx>
 #include <Dolphin/GX.h>
 #include <VI.h>
 #include <SMS/Camera/SunModel.hxx>
+#include <SMS/Enemy/Conductor.hxx>
 #include <SMS/Camera/CubeManagerBase.hxx>
 #include <JDrama/JDRViewObjPtrListT.hxx>
+#include <SMS/MarioUtil/DrawUtil.hxx>
+#include <JSystem/JDrama/JDRViewObjPtrListT.hxx>
 
 #include <Dolphin/MTX.h>
 #include <BetterSMS/libs/global_list.hxx>
@@ -22,6 +26,9 @@
 #include "players.hxx"
 #include "talking.hxx"
 #include "yoshi.hxx"
+
+static u32* gpSilhouetteManager = (u32*)0x8040E090;
+static u32* gpQuestionManager = (u32*)0x8040e088;
 
 // FIXME: Support horizontal split screen
 // FIXME: 3/4 perspectives?
@@ -233,17 +240,120 @@ namespace SMSCoop {
     // 0x20000000 = = (TMario)
     // 0x80000000 = = (TMario)
     
+    void printList(JGadget::TList<TLiveActor *>& list, int type = 0) {
+        
+        auto it2 = list.begin();
+        auto end2 = list.end();
+        while(it2 != end2) {
+            JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
+            if(type == 1) { // Alone actors (whatever that means)
+                //TLiveActor* liveActor = reinterpret_cast<TLiveActor*>(*it2);
+                //liveActor->mStateFlags.asFlags.mCullModel = true;
+                obj2->mPerformFlags |= 0x4;
+            } else if (type == 2) { // TLiveManager
+
+                //TMario* currentMario = getMario(0);
+                //Vec marioPos;
+                //marioPos.x = currentMario->mTranslation.x;
+                //marioPos.y = currentMario->mTranslation.y + 75.0;
+                //marioPos.z = currentMario->mTranslation.z;
+                ////gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
+                //gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
+                //gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
+                //gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
+                ////OSReport("Testing %X %X %X %X \n", (u32)&gpCubeFastA->mCurrentCube - (u32)gpCubeFastA, gpCubeFastA->mCurrentCube, gpCubeFastB->mCurrentCube, gpCubeFastC->mCurrentCube);
+
+                TLiveManager* manager = reinterpret_cast<TLiveManager*>(*it2);
+                //manager->perform(0x2, graphicsPointer);
+                /*CPolarSubCamera* camera = getCameraById(0);
+                PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
+                setCamera(0);*/
+                //PSMTXIdentity(*(Mtx*)((u32)graphicsPointer + 0xb4));
+                manager->clipActors(graphicsPointer);
+                manager->setFlagOutOfCube();
+                //setCamera(0);
+             /*   camera = getCameraById(0);
+                PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));*/
+                /*SetViewFrustumClipCheckPerspective(camera->mProjectionFovy, camera->mProjectionAspect, 10.0f, 100000.0);
+                */
+                u32 objCount = manager->_14;
+                u32 id = 0;
+                while(id < objCount) {
+                    TLiveActor* actor = *reinterpret_cast<TLiveActor**>(manager->_18 + id);
+
+                    if(actor->mStateFlags.asU32 & 0x1 || actor->mObjectID == 0x4000003b || actor->mActorData == nullptr) {
+                        id++;
+                        continue;
+                    }
+                    //OSReport("Testing type %s\n", actor->mKeyName);
+
+                    J3DModel* model = (J3DModel*)getModel__10TLiveActorCFv(actor);
+                    actor->perform(0x42, graphicsPointer);
+
+                    //char unknown = *(char*)((*(u32*)((u32)model + 0x84)) + 0x30);
+                    ////OSReport("Testing %X, %X, %X, %X\n", (u32)model, unknown, model->_74, (u32)&model);
+                    //actor->calcRootMatrix();
+                    //actor->mActorData->calc();
+                    //if(model != nullptr) {
+                    //    if((actor->mStateFlags.asU32 & 0x204) == 0) {
+                    //        if(unknown == 0) {
+                    //            //model->viewCalc();
+                    //            SMS_ShowAllShapePacket__FP8J3DModel(model);
+                    //        }
+                    //    } else {
+                    //        if(unknown != 0) {
+                    //            SMS_HideAllShapePacket__FP8J3DModel(model);
+                    //        }
+                    //    }
+                    //}
+                    id++;
+                }
+
+                /*manager->clipActorsAux(graphicsPointer, 0.1, 100.0f);*/
+            }
+            //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
+            it2++;
+        }
+    }
+
+    bool allowTesting = false;
+
+
+
     // Description: Before doing GXInvalidate, render other players perspective
     static void processGXInvalidateTexAll() { 
         //OSReport("---------------------\n");
         //OSReport("Starting p2 screen \n");
+        OSReport("Mario frame start\n");
         TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
         GXInvalidateTexAll(); 
         if(!isSingleplayerLevel()) {
+            //if(*gpSilhouetteManager) {
+            //    u8* silhouetteAlpha = (u8*)(*gpSilhouetteManager + 0x48);
+            //    //*silhouetteAlpha = 128;
+            //}
+            //u8* silhouetteAlpha = (u8*)(*gpSilhouetteManager + 0x48 / 4);
+            //OSReport("Silhouette alpha %X %d\n", *gpSilhouetteManager, *silhouetteAlpha);
+
+
             setViewport(0);
             setActiveMario(0);
             setCamera(0);
+            allowTesting = true;
             setWaterColorForMario(gpMarioOriginal);
+                CPolarSubCamera* camera = getCameraById(0);
+                //PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
+                // Set camera properties to TGraphics
+                camera->perform(0x14, graphicsPointer);
+                TMario* currentMario = getMario(0);
+                Vec marioPos;
+                marioPos.x = currentMario->mTranslation.x;
+                marioPos.y = currentMario->mTranslation.y + 75.0;
+                marioPos.z = currentMario->mTranslation.z;
+                //gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
+                gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
+                gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
+                gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
      /*       u32 retraceCount = VIGetRetraceCount() / 2;
             do {
                 OSSleepThread(&retraceQueue);
@@ -278,7 +388,72 @@ namespace SMSCoop {
             for(int i = 0; i < 4; ++i) {
                 g_objectsToUpdate->perform(0x3, graphicsPointer);
             }
+
+
+            //OSReport("\n\n\n\n");
         
+            
+            auto it = director->mPerformListCalcAnim->begin();
+            auto end = director->mPerformListCalcAnim->end();
+            while(it != end) {
+                JDrama::TViewObj* viewObj = reinterpret_cast<JDrama::TViewObj*>(it->mData);
+                ///*OSReport*/("Testing %s %X %X %X\n", viewObj->mKeyName, viewObj->mPerformFlags, viewObj->getType(), *(u32*)viewObj);
+                if(*(u32*)viewObj == 0x803c0f5c || *(u32*)0x803C0F5C) { // JDrama::TViewObjPtrListT
+                    JDrama::TViewObjPtrListT<JDrama::TViewObj>* list = reinterpret_cast<JDrama::TViewObjPtrListT<JDrama::TViewObj>*>(viewObj);
+                    //OSReport("JDrama::TViewObjPtrListT\n");
+                    auto it2 = list->mViewObjList.begin();
+                    auto end2 = list->mViewObjList.end();
+                    while(it2 != end2) {
+                        JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
+                        //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
+                        it2++;
+                    }
+                }
+                if(*(u32*)viewObj == 0x803da444 || *(u32*)0x803DA444) { // TIdxGroupObj (also a TViewObjPtrList)
+                    TIdxGroupObj* list = reinterpret_cast<TIdxGroupObj*>(viewObj);
+                    auto it2 = list->mViewObjList.begin();
+                    auto end2 = list->mViewObjList.end();
+                    //OSReport("TIdxGroupObj\n");
+                    while(it2 != end2) {
+                        JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
+                        //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
+                        it2++;
+                    }
+                }
+                if(*(u32*)viewObj == 0x803ad958) { // TConductor
+                    TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
+                    //OSReport("Conductor\n");
+                        /*OSReport("  Conductor first head  %X %X %X %X\n", (u32)conductor->_30.mIterator, (u32)conductor->_30.mNext, (u32)conductor->_30.mPrevious, (u32)conductor->_30.mValue);*/
+                    
+                    /*conductor->perform(0x1001, graphicsPointer);
+                    conductor->perform(0x2001, graphicsPointer);
+                    conductor->perform(0x1, graphicsPointer);
+                    conductor->perform(0x3001, graphicsPointer);*/
+                    //conductor->perform(0x2, graphicsPointer);
+                    //OSReport("Conductor manager _10\n");
+                    printList(conductor->_10, 2);
+                    ////OSReport("Conductor manager _20\n");
+                    //printList(conductor->_20);
+                    ////OSReport("Conductor manager _30\n");
+                    //printList(conductor->_30, 1);
+                    ////OSReport("Conductor manager _40\n");
+                    //printList(conductor->_40);
+                    ////OSReport("Conductor manager _50\n");
+                    //printList(conductor->_50);
+                    ////OSReport("Conductor manager _60\n");
+                    //printList(conductor->_60);
+             /*       OSReport("Conductor enemy manager _70\n");
+                    printList(conductor->_70);*/
+                }
+                it = it->mNext;
+            }
+            /*director->mPerformListCalcAnim->perform(0x1001, graphicsPointer);
+            director->mPerformListCalcAnim->perform(0x2001, graphicsPointer);
+            director->mPerformListCalcAnim->perform(0x1, graphicsPointer);
+            director->mPerformListCalcAnim->perform(0x3001, graphicsPointer);
+            director->mPerformListCalcAnim->perform(0x2, graphicsPointer);*/
+            //director->mPerformListCalcAnim->perform(0x2, graphicsPointer);
+            
             director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
             director->mPerformListPostDraw->perform(0xffffffff, graphicsPointer);
             //
@@ -296,10 +471,13 @@ namespace SMSCoop {
             director->mPerformListUnk1->perform(0x1000000, graphicsPointer); // Need to do some preparation for goop maps
             director->mPerformListUnk2->perform(0x20f0000, graphicsPointer); // Unsure exactly what happens, but this works without drawing a black square to the screen
             director->mPerformListGX->perform(0xffffffff, graphicsPointer);
+            
             // FIXME should be based on some conditions, check direct in MarDirector
-            //director->mPerformListSilhouette->testPerform(0xffffffff, graphicsPointer);
-            director->mPerformListGXPost->perform(0xffffffff, graphicsPointer);
+            director->mPerformListSilhouette->testPerform(0xffffffff, graphicsPointer);
 
+            director->mPerformListGXPost->perform(0xffffffff, graphicsPointer);
+            
+            allowTesting = false;
             setCamera(1);
             setActiveMario(1);
             setViewport(1);
@@ -322,10 +500,45 @@ namespace SMSCoop {
             begin = begin->mNext;
         }
         OSReport("---------------------\n");*/
-
+        OSReport("Mario frame end\n");
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x80299d04, 0, 0, 0), processGXInvalidateTexAll);
-
+    
+ //   void TConductor_perform(TConductor* conductor, u32 perform_flags, JDrama::TGraphics* graphics) {
+ //       OSReport("Update with flags %X \n", perform_flags);
+ //     /*  if(perform_flags == 0x2 && !allowTesting) {
+ //           return;
+ //       }*/
+ //       perform__10TConductorFUlPQ26JDrama9TGraphics(conductor, perform_flags, graphics);
+ //   }
+	//SMS_WRITE_32(SMS_PORT_REGION(0x803ad978, 0, 0, 0), (u32)(&TConductor_perform));
+    
+    void frameUpdate_override(void* self) {
+        if(!allowTesting) {
+            frameUpdate__6MActorFv(self);
+        }
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80008990, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8003dc70, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8003e668, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8005ba58, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80068d7c, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800d953c, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800f2734, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x800f2784, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801949bc, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801d4184, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801d41b8, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801f79dc, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801f7a2c, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x802069dc, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8021220c, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80217f34, 0, 0, 0), frameUpdate_override);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x802391e4, 0, 0, 0), frameUpdate_override);
+    //u32 testing() {
+    //    return true;
+    //}
+    //SMS_PATCH_BL(SMS_PORT_REGION(0x8021b144, 0, 0, 0), testing);
     int test = 0;
     void PerformList_push_back_mapGroup(TPerformList* that, JDrama::TViewObjPtrListT<JDrama::TViewObj, JDrama::TViewObj>* mapObj, u32 flags) {
 
@@ -416,6 +629,8 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8002eacc, 0, 0, 0), GXPeekZ_override);
 
+    
+
     void TSunMgr_perform_override(void* sunMgr, u32 performFlags, JDrama::TGraphics* graphics) {
         g_sun = sunMgr;
         perform__7TSunMgrFUlPQ26JDrama9TGraphics(sunMgr, performFlags, graphics);
@@ -442,4 +657,42 @@ namespace SMSCoop {
     // Remove check for graphics on sun stare (enter noki) This might cause bugs...
 	SMS_WRITE_32(SMS_PORT_REGION(0x8002e308, 0, 0, 0), 0x60000000);
 
+
+    // Fix shadow behind walls
+ //   u8 currentSyncDrawMarioId = 0;
+ //   #define drawSyncCallback__6TMarioFUs     ((int (*)(...))0x8024D17C)
+ //   void TMario_drawSyncCallback_override(TMario* mario, u16 flag) {
+ //       //currentSyncDrawMarioId = getPlayerId(mario);
+ //       //mario->mAttributes._04 |= 1;
+
+ //       for(int i = 0; i < getPlayerCount(); ++i) {
+ //           //drawSyncCallback__6TMarioFUs(getMario(i), flag);
+ //       }
+
+ //       //OSReport("Dafux %X %d\n", mario, flag);
+ //       //drawSyncCallback__6TMarioFUs(mario, flag);
+ //   }
+	//SMS_WRITE_32(SMS_PORT_REGION(0x803af008, 0, 0, 0), (u32)(&TMario_drawSyncCallback_override));
+	//SMS_WRITE_32(SMS_PORT_REGION(0x803dd744, 0, 0, 0), (u32)(&TMario_drawSyncCallback_override));
+ //   SMS_PATCH_B(SMS_PORT_REGION(0x800452dc, 0, 0, 0), TMario_drawSyncCallback_override);
+    
+    //// Description: Fix isUnderground check
+	SMS_WRITE_32(SMS_PORT_REGION(0x8022794c, 0, 0, 0), 0x60000000);
+
+    // Kinda fixes p2's shadow, but looks very weird...
+    // FIXME
+	SMS_WRITE_32(SMS_PORT_REGION(0x8024d9cc, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x8024da00, 0, 0, 0), 0x60000000);
+
+    //// Description: Fix is obstructed check
+    //// TODO: Fix for horizontal split screen
+    //void GXPeekARGB_override(u16 x, u16 y, GXColor* color) {
+    //    u16 rX = x / 2;
+    //    if(perspective == 1) {
+    //        rX += 320;
+    //    }
+    //    GXPeekARGB(rX, y, color);
+    //}
+    //SMS_PATCH_BL(SMS_PORT_REGION(0x8024d25c, 0, 0, 0), GXPeekARGB_override);
+    //SMS_PATCH_BL(SMS_PORT_REGION(0x8024d1d0, 0, 0, 0), SMSGetGameRenderWidth_320);
 }

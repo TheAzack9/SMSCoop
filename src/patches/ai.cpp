@@ -507,7 +507,6 @@ namespace SMSCoop {
 
 			if(!marioIsOn__11TMapObjBaseCFv(muddyBoat) || !marioControllingBoat->mFludd->isEmitting()) {
 				marioControllingBoat = nullptr;
-				OSReport("Removing controlling mario %d\n", controllingMario);
 			}
 		}
 
@@ -517,12 +516,10 @@ namespace SMSCoop {
 				setActiveMario(i);
 				if(marioIsOn__11TMapObjBaseCFv(muddyBoat) && mario->mFludd->isEmitting()) {
 					marioControllingBoat = mario;
-					OSReport("setting controlling mario %d\n", i);
 					break;
 				}
 			}
 		}
-		OSReport("Mario controlling boat %X %X \n", marioControllingBoat, gpMarioOriginal);
 		control__10TMuddyBoatFv(muddyBoat);
 
 		setActiveMario(getActiveViewport());

@@ -485,6 +485,7 @@ void setDebug(TApplication *application) {
     BetterSMS::setDebugMode(true);
 }
 
+
 static void initModule() {
 
     OSReport("Initializing Coop Module...\n");

@@ -74,9 +74,15 @@ namespace SMSCoop {
 	
 	void TMap_load_override(TMap* map, void* memStream) {
 		load__4TMapFR20JSUMemoryInputStream(map, memStream);
-		pushToPerformList(map, 0x1);
+		pushToPerformList(map, 0x3);
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c1668, 0, 0, 0), (u32)&TMap_load_override);
+
+	//void initUnderpass_override(JDrama::TViewObj* mapModel) {
+	//	initUnderpass__9TMapModelFv(mapModel);
+	//	pushToPerformList(mapModel, 0x2);
+	//}
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x801945a8, 0, 0, 0), initUnderpass_override);
 
 	void TWarpAreaActor_load_override(JDrama::TViewObj* warpAreaActor, void* memStream) {
 		load__14TWarpAreaActorFR20JSUMemoryInputStream(warpAreaActor, memStream);

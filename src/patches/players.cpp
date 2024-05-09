@@ -133,11 +133,11 @@ namespace SMSCoop {
 				if(isSingleplayerLevel() && i > 0) break;
 				memoryStream->setBuffer(buffer, 73);
 				TMario* mario = (TMario*) response;
-				marios[i] = mario;
 
 				if(i != 0) {
 					mario = new TMario();
 				}
+				marios[i] = mario;
 				mario->load(*memoryStream);
 				
 				if(i != 0) {

@@ -3,9 +3,13 @@
 
 #include <raw_fn.hxx>
 
+#include <SMS/System/MarDirector.hxx>
+
 // Description: Fix water height not being calculated correctly
 static void TMapObjWave_initDraw_override(void* tMapObjWave) {
-	updateHeightAndAlpha__11TMapObjWaveFv(tMapObjWave);
+	if(gpMarDirector->mAreaID == 4 || gpMarDirector->mAreaID == 6) {
+		updateHeightAndAlpha__11TMapObjWaveFv(tMapObjWave);
+	}
 	initDraw__11TMapObjWaveFv(tMapObjWave);
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x801dce3c, 0, 0, 0), TMapObjWave_initDraw_override);
