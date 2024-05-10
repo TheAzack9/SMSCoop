@@ -45,6 +45,27 @@ namespace SMSCoop {
 		awakenedObjects[player]->awake();
 	}
 
+	void watchToWarp_override(TMapWarp* warp) {
+		u8 currentMarioId = getActiveViewport();
+		TMario* currentMario = getMario(currentMarioId);
+		// Cannot warp while being held
+		if(currentMario->mHolder != nullptr) {
+			return; 
+		}
+		changePerspective(currentMarioId);
+		warp->mPrevID = playerPreviousWarpId[currentMarioId];
+
+		watchToWarp__8TMapWarpFv(warp);
+		playerPreviousWarpId[currentMarioId] = warp->mPrevID;
+		for(int j = 0; j < getPlayerCount(); ++j) {
+			if(getMario(currentMarioId)->mHeldObject == getMario(j)) {
+				playerPreviousWarpId[j] = warp->mPrevID;
+				awakenedObjects[j] = awakenedObjects[currentMarioId];
+			}
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80189760, 0, 0, 0), watchToWarp_override);
+
 	// Description: Try fix warps + some objects being hidden (put to sleep) on certain collision types
 	// Note: I have up fixing this for sirena for now due to it being updated based on mario position and many other things. This fix is mainly for e.g rooms in delfino
 	// Future fix: Keep track of all stage items for each player somehow (Potentially keeping a set of sleeping and awake items for each player)
@@ -53,19 +74,11 @@ namespace SMSCoop {
 		if(performFlags & 0x1) {
 		
 			// Optimization: Only swap if perspective has changed
-			u8 currentMario = getActiveViewport();
-			tMap->mMapWarp->mPrevID = playerPreviousWarpId[currentMario];
-			changePerspective(currentMario);
+			//OSReport("TMap perform perspective %X %X %X %X %X\n", currentMario, playerPreviousWarpId[0], playerPreviousWarpId[1], tMap->mMapWarp->mCurrentID, tMap->mMapWarp->mPrevID);
 			
 			perform__4TMapFUlPQ26JDrama9TGraphics(tMap, performFlags, graphics);
-
-			playerPreviousWarpId[currentMario] = tMap->mMapWarp->mPrevID;
+			//OSReport("Previous set %X\n", tMap->mMapWarp->mPrevID);
 		
-			for(int j = 0; j < getPlayerCount(); ++j) {
-				if(getMario(currentMario)->mHeldObject == getMario(j)) {
-					playerPreviousWarpId[j] = tMap->mMapWarp->mPrevID;
-				}
-			}
 		} else {
 			perform__4TMapFUlPQ26JDrama9TGraphics(tMap, performFlags, graphics);
 		}

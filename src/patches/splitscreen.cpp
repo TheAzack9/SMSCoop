@@ -240,6 +240,22 @@ namespace SMSCoop {
     // 0x20000000 = = (TMario)
     // 0x80000000 = = (TMario)
     
+    // TODO: Add option for setting far clip multiplier to reduce lag
+    void testing(f32 fov, f32 aspect, f32 near, f32 far) {
+        SetViewFrustumClipCheckPerspective(fov, aspect, near, far);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8021b0b0, 0, 0, 0), testing);
+
+    void* gx_GXInit_alloc_override(u32 size, int flags, JKRHeap* heap) {
+        return JKRHeap::alloc(0x40000, flags, heap);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x802a7488, 0, 0, 0), gx_GXInit_alloc_override);
+
+    void gx_GXInit_override(void* heap, u32 size) {
+        GXInit(heap, 0x40000);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x802a7490, 0, 0, 0), gx_GXInit_override);
+    
     void printList(JGadget::TList<TLiveActor *>& list, int type = 0) {
         
         auto it2 = list.begin();
@@ -269,7 +285,22 @@ namespace SMSCoop {
                 PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
                 setCamera(0);*/
                 //PSMTXIdentity(*(Mtx*)((u32)graphicsPointer + 0xb4));
-                manager->clipActors(graphicsPointer); // FIXME: Unsure why this has a lot lower clip range than in primary render
+                u32 functionAddress = *(u32*)((*(u32*)manager) + 0x48);
+                // Cheeky way of detecting if EnemyManager instance by using unused restoreDrawBuffer as an anchor
+                if(functionAddress != 0x80006bc4) {
+                    u32 functionAddress = *(u32*)((*(u32*)manager) + 0x30);
+                    ((int (*)(...))functionAddress)(manager, graphicsPointer);
+                } else {
+                    u32 functionAddress = *(u32*)((*(u32*)manager) + 0x44);
+                    ((int (*)(...))functionAddress)(manager, graphicsPointer);
+                }
+
+
+
+                //OSReport("Function ptr %X\n", *(u32*)((*(u32*)manager) + 0x30));
+                //((int (*)(...))((*(u32*)(*(u32*)manager) + 0x30)))(graphicsPointer);
+
+                //manager->clipActors(graphicsPointer); // FIXME: Unsure why this has a lot lower clip range than in primary render, problem is that i am calling the function directly, should use vt to look up function...
                 //manager->clipActorsAux(graphicsPointer, 1000.0f, manager->_3c);
                 manager->setFlagOutOfCube();
                 //setCamera(0);

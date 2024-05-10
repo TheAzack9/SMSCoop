@@ -107,8 +107,8 @@ namespace SMSCoop {
 			TMario* mario = getMario(i);
 			u32 attributes = *(u32*)&mario->mAttributes;
 
-			if((attributes & 0x1000) != 0) continue;
-			if((mario->mState & 0x800) != 0) continue;
+			// Do not pause if airborn and not in water
+			if((attributes & 0x1000) == 0 && (mario->mState & 0x800) != 0) continue;
 			const JUTGamePad::CButton &buttons = mario->mController->mButtons;
 			if((buttons.mFrameInput & TMarioGamePad::Z) != 0) continue;
 			if((buttons.mFrameInput & TMarioGamePad::START) == 0) continue;
@@ -137,7 +137,19 @@ namespace SMSCoop {
 		director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
 		*(TMarioGamePad**)(pauseMenu + 0x10c / 4) = director->mGamePads[pausingPlayer];
 
+		// Tried to make pause only appear on person who paused's screen
+		//u32 overrideFlags = performFlags;
+		//if(getMario(pausingPlayer) != gpMarioOriginal) {
+		//	overrideFlags &= ~0x8;
+		//	if(performFlags & 0x8 && gpMarDirector->mCurState == 5) {
+		//		J2DFillBox(0, 0, 640, 640, {0, 0, 0, 150});
+		//	}
+		//}
+
+
 		perform__11TPauseMenu2FUlPQ26JDrama9TGraphics(pauseMenu, performFlags, graphics);
+
+
 		*(TMarioGamePad**)(pauseMenu + 0x10c / 4) = director->mGamePads[0];
 		//*(u32*)&director->mGamePads[pausingPlayer]->mState = state;
 	}

@@ -87,6 +87,8 @@ namespace SMSCoop {
 			}
 				
 		}
+
+		playerIdPerFrame = (playerIdPerFrame+1) % getPlayerCount();
 			
 		if(!someoneTalking) {
 			marioIdTalking = -1;
@@ -215,6 +217,18 @@ namespace SMSCoop {
 
 	}
 
+	void isInsideFastCube(TSpcInterp *interp, u32 argc) {
+		setActiveMario(playerIdPerFrame);
+		evIsInsideFastCube__FP32TSpcTypedInterp_1(interp, argc);
+		setActiveMario(getActiveViewport());
+	}
+	
+	void isInsideCube(TSpcInterp *interp, u32 argc) {
+		setActiveMario(playerIdPerFrame);
+		evIsInsideCube__FP32TSpcTypedInterp_1(interp, argc);
+		setActiveMario(getActiveViewport());
+	}
+
 	#define BIND_SYMBOL(binary, symbol, func)                                                          \
     (binary)->bindSystemDataToSymbol((symbol), reinterpret_cast<u32>(&(func)))
 	void bindNearActorsFunction(TSpcBinary* spcBinary) {
@@ -232,6 +246,18 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8020ea38, 0, 0, 0), forceStartTalkBind);
 	
+	// TODO: Move to spc class
+	// Description: Fixes e.g blooper racing
+	void isInsideFastCubeBind(TSpcBinary* spcBinary) {
+		BIND_SYMBOL(spcBinary, "isInsideFastCube", isInsideFastCube);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802898f8, 0, 0, 0), isInsideFastCubeBind);
+	
+	void isInsideCubeBind(TSpcBinary* spcBinary) {
+		BIND_SYMBOL(spcBinary, "isInsideCube", isInsideCube);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802896c8, 0, 0, 0), isInsideCubeBind);
+
 	// Description: Ensure that the talking textbox only appears for the talking mario
 	void TTalk2D2_perform(Talk2D2* talk2d, u32 renderFlags, JDrama::TGraphics* graphics) {
 		int i = getActiveViewport();
@@ -253,11 +279,11 @@ namespace SMSCoop {
 			} else {
 				perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags & ~8, graphics);
 			}
+		} else {
+			// This should never happen, but i am suspecting that it did during one of my runs...
+			perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags & ~8, graphics);
 		}
 
-		if(renderFlags & 0x1) {
-			playerIdPerFrame = (playerIdPerFrame+1) % getPlayerCount();
-		}
 		setActiveMario(getActiveViewport());
 		setCamera(getActiveViewport());
 	}
