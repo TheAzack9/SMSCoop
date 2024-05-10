@@ -269,7 +269,8 @@ namespace SMSCoop {
                 PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
                 setCamera(0);*/
                 //PSMTXIdentity(*(Mtx*)((u32)graphicsPointer + 0xb4));
-                manager->clipActors(graphicsPointer);
+                manager->clipActors(graphicsPointer); // FIXME: Unsure why this has a lot lower clip range than in primary render
+                //manager->clipActorsAux(graphicsPointer, 1000.0f, manager->_3c);
                 manager->setFlagOutOfCube();
                 //setCamera(0);
              /*   camera = getCameraById(0);
@@ -316,7 +317,7 @@ namespace SMSCoop {
         }
     }
 
-    bool allowTesting = false;
+    bool isRenderingOtherPerspectives = false;
 
 
 
@@ -324,7 +325,7 @@ namespace SMSCoop {
     static void processGXInvalidateTexAll() { 
         //OSReport("---------------------\n");
         //OSReport("Starting p2 screen \n");
-        OSReport("Mario frame start\n");
+        //OSReport("Mario frame start\n");
         TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
         GXInvalidateTexAll(); 
         if(!isSingleplayerLevel()) {
@@ -339,7 +340,7 @@ namespace SMSCoop {
             setViewport(0);
             setActiveMario(0);
             setCamera(0);
-            allowTesting = true;
+            isRenderingOtherPerspectives = true;
             setWaterColorForMario(gpMarioOriginal);
                 CPolarSubCamera* camera = getCameraById(0);
                 //PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
@@ -454,6 +455,7 @@ namespace SMSCoop {
             director->mPerformListCalcAnim->perform(0x2, graphicsPointer);*/
             //director->mPerformListCalcAnim->perform(0x2, graphicsPointer);
             
+            //director->mPerformListSilhouette->perform(0xffffffff, graphicsPointer);
             director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
             director->mPerformListPostDraw->perform(0xffffffff, graphicsPointer);
             //
@@ -477,7 +479,7 @@ namespace SMSCoop {
 
             director->mPerformListGXPost->perform(0xffffffff, graphicsPointer);
             
-            allowTesting = false;
+            isRenderingOtherPerspectives = false;
             setCamera(1);
             setActiveMario(1);
             setViewport(1);
@@ -500,13 +502,13 @@ namespace SMSCoop {
             begin = begin->mNext;
         }
         OSReport("---------------------\n");*/
-        OSReport("Mario frame end\n");
+        //OSReport("Mario frame end\n");
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x80299d04, 0, 0, 0), processGXInvalidateTexAll);
     
  //   void TConductor_perform(TConductor* conductor, u32 perform_flags, JDrama::TGraphics* graphics) {
  //       OSReport("Update with flags %X \n", perform_flags);
- //     /*  if(perform_flags == 0x2 && !allowTesting) {
+ //     /*  if(perform_flags == 0x2 && !isRenderingOtherPerspectives) {
  //           return;
  //       }*/
  //       perform__10TConductorFUlPQ26JDrama9TGraphics(conductor, perform_flags, graphics);
@@ -514,7 +516,7 @@ namespace SMSCoop {
 	//SMS_WRITE_32(SMS_PORT_REGION(0x803ad978, 0, 0, 0), (u32)(&TConductor_perform));
     
     void frameUpdate_override(void* self) {
-        if(!allowTesting) {
+        if(!isRenderingOtherPerspectives) {
             frameUpdate__6MActorFv(self);
         }
     }
@@ -657,7 +659,14 @@ namespace SMSCoop {
     // Remove check for graphics on sun stare (enter noki) This might cause bugs...
 	SMS_WRITE_32(SMS_PORT_REGION(0x8002e308, 0, 0, 0), 0x60000000);
 
-
+    
+    
+    // Description: Fix shadow not using right mtx
+    //void boxDrawPrepare_override(TMario* mario, Mtx matrix) {
+    //    CPolarSubCamera* camera = getCameraById(getPlayerId(mario));
+    //    boxDrawPrepare__6TMarioFPA4_f(mario, camera->mTRSMatrix);
+    //}
+    //SMS_PATCH_BL(SMS_PORT_REGION(0x8024da54, 0, 0, 0), boxDrawPrepare_override);
     // Fix shadow behind walls
  //   u8 currentSyncDrawMarioId = 0;
  //   #define drawSyncCallback__6TMarioFUs     ((int (*)(...))0x8024D17C)
@@ -681,8 +690,8 @@ namespace SMSCoop {
 
     // Kinda fixes p2's shadow, but looks very weird...
     // FIXME
-	SMS_WRITE_32(SMS_PORT_REGION(0x8024d9cc, 0, 0, 0), 0x60000000);
-	SMS_WRITE_32(SMS_PORT_REGION(0x8024da00, 0, 0, 0), 0x60000000);
+	//SMS_WRITE_32(SMS_PORT_REGION(0x8024d9cc, 0, 0, 0), 0x60000000);
+	//SMS_WRITE_32(SMS_PORT_REGION(0x8024da00, 0, 0, 0), 0x60000000);
 
     //// Description: Fix is obstructed check
     //// TODO: Fix for horizontal split screen

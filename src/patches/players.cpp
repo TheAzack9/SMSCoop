@@ -281,15 +281,35 @@ namespace SMSCoop {
 	void TMario_perform_coop(TMario* mario, u32 param_1, JDrama::TGraphics* param_2) {
 		if(param_1 & 0x1) {
 			u8 playerId = getPlayerId(mario);
+            /*CPolarSubCamera* camera = getCameraById(playerId);
+            camera->perform(0x14, param_2);*/
 			setActiveMario(playerId);
 			setCamera(playerId);
+
 		}
 
 		perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
-
 		SimulateEscapeHeld(mario);
+		
+		// Fix for mario silhouette
+		// The way sunshine deals with silhouette is by rendering mario to a separate buffer. Each frame the two buffers are swapped
+		// Problem earlier was that each mario had their own buffer, meaning that only one shadow would be shown. We are enforcing here that all other marios 
+		// Use player 1s buffer, this makes both players render to the same buffer and use that one buffer when rendering silhouettes
+		// FIXME: MEMORY OPTIMIZATION: We don't technically need the other buffers, so those just use unecessary memory.
+		if((param_1 & 0x10000000) != 0) {
+			TMario* firstMario = getMario(0);
+			if(firstMario != mario) {
+				mario->mDrawBufferA = firstMario->mDrawBufferA;
+				mario->mDrawBufferB = firstMario->mDrawBufferB;
+				mario->_39C = firstMario->_39C;
+				mario->_3A0 = firstMario->_3A0;
+			}
+		}
+
 		if(param_1 & 0x1) {
 			u8 currentId = getActiveViewport();
+            /*CPolarSubCamera* camera = getCameraById(currentId);
+            camera->perform(0x14, param_2);*/
 			setActiveMario(currentId);
 			setCamera(currentId);
 		}
