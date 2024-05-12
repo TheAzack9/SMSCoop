@@ -48,9 +48,11 @@ namespace SMSCoop {
 	void watchToWarp_override(TMapWarp* warp) {
 		u8 currentMarioId = getActiveViewport();
 		TMario* currentMario = getMario(currentMarioId);
-		// Cannot warp while being held
-		if(currentMario->mHolder != nullptr) {
-			return; 
+		// Cannot warp while being held by a mario
+		for(int j = 0; j < getPlayerCount(); ++j) {
+			if(currentMario->mHolder == getMario(j)) {
+				return; 
+			}
 		}
 		changePerspective(currentMarioId);
 		warp->mPrevID = playerPreviousWarpId[currentMarioId];

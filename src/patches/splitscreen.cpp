@@ -382,10 +382,6 @@ namespace SMSCoop {
                 marioPos.x = currentMario->mTranslation.x;
                 marioPos.y = currentMario->mTranslation.y + 75.0;
                 marioPos.z = currentMario->mTranslation.z;
-                //gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
-                gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
-                gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
-                gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
      /*       u32 retraceCount = VIGetRetraceCount() / 2;
             do {
                 OSSleepThread(&retraceQueue);
@@ -406,15 +402,19 @@ namespace SMSCoop {
 
             TMarDirector_movement_game_override(director);
 
-            s32 cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeArea, gpMarioPos);
-	        *(u32*)((u32)gpCubeArea + 0x1c) = cubeNo;
-            cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastA, gpMarioPos);
-	        *(u32*)((u32)gpCubeFastA + 0x1c) = cubeNo;
-            cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastB, gpMarioPos);
-	        *(u32*)((u32)gpCubeFastB + 0x1c) = cubeNo;
-            cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
-	        *(u32*)((u32)gpCubeFastC + 0x1c) = cubeNo;
-
+         //   s32 cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeArea, gpMarioPos);
+	        //*(u32*)((u32)gpCubeArea + 0x1c) = cubeNo;
+         //   cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastA, gpMarioPos);
+	        //*(u32*)((u32)gpCubeFastA + 0x1c) = cubeNo;
+         //   cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastB, gpMarioPos);
+	        //*(u32*)((u32)gpCubeFastB + 0x1c) = cubeNo;
+         //   cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
+	        //*(u32*)((u32)gpCubeFastC + 0x1c) = cubeNo;
+            
+                gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
+                gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
+                gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
+                gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
             // Simulate quarter frames lmao.
             // Fixes Cube streams
             for(int i = 0; i < 4; ++i) {
@@ -424,61 +424,61 @@ namespace SMSCoop {
 
             //OSReport("\n\n\n\n");
         
-            
-            auto it = director->mPerformListCalcAnim->begin();
-            auto end = director->mPerformListCalcAnim->end();
-            while(it != end) {
-                JDrama::TViewObj* viewObj = reinterpret_cast<JDrama::TViewObj*>(it->mData);
-                ///*OSReport*/("Testing %s %X %X %X\n", viewObj->mKeyName, viewObj->mPerformFlags, viewObj->getType(), *(u32*)viewObj);
-                if(*(u32*)viewObj == 0x803c0f5c || *(u32*)0x803C0F5C) { // JDrama::TViewObjPtrListT
-                    JDrama::TViewObjPtrListT<JDrama::TViewObj>* list = reinterpret_cast<JDrama::TViewObjPtrListT<JDrama::TViewObj>*>(viewObj);
-                    //OSReport("JDrama::TViewObjPtrListT\n");
-                    auto it2 = list->mViewObjList.begin();
-                    auto end2 = list->mViewObjList.end();
-                    while(it2 != end2) {
-                        JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
-                        //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
-                        it2++;
-                    }
-                }
-                if(*(u32*)viewObj == 0x803da444 || *(u32*)0x803DA444) { // TIdxGroupObj (also a TViewObjPtrList)
-                    TIdxGroupObj* list = reinterpret_cast<TIdxGroupObj*>(viewObj);
-                    auto it2 = list->mViewObjList.begin();
-                    auto end2 = list->mViewObjList.end();
-                    //OSReport("TIdxGroupObj\n");
-                    while(it2 != end2) {
-                        JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
-                        //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
-                        it2++;
-                    }
-                }
-                if(*(u32*)viewObj == 0x803ad958) { // TConductor
-                    TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
-                    //OSReport("Conductor\n");
-                        /*OSReport("  Conductor first head  %X %X %X %X\n", (u32)conductor->_30.mIterator, (u32)conductor->_30.mNext, (u32)conductor->_30.mPrevious, (u32)conductor->_30.mValue);*/
-                    
-                    /*conductor->perform(0x1001, graphicsPointer);
-                    conductor->perform(0x2001, graphicsPointer);
-                    conductor->perform(0x1, graphicsPointer);
-                    conductor->perform(0x3001, graphicsPointer);*/
-                    //conductor->perform(0x2, graphicsPointer);
-                    //OSReport("Conductor manager _10\n");
-                    printList(conductor->_10, 2);
-                    ////OSReport("Conductor manager _20\n");
-                    //printList(conductor->_20);
-                    ////OSReport("Conductor manager _30\n");
-                    //printList(conductor->_30, 1);
-                    ////OSReport("Conductor manager _40\n");
-                    //printList(conductor->_40);
-                    ////OSReport("Conductor manager _50\n");
-                    //printList(conductor->_50);
-                    ////OSReport("Conductor manager _60\n");
-                    //printList(conductor->_60);
-             /*       OSReport("Conductor enemy manager _70\n");
-                    printList(conductor->_70);*/
-                }
-                it = it->mNext;
-            }
+            //
+            //auto it = director->mPerformListCalcAnim->begin();
+            //auto end = director->mPerformListCalcAnim->end();
+            //while(it != end) {
+            //    JDrama::TViewObj* viewObj = reinterpret_cast<JDrama::TViewObj*>(it->mData);
+            //    ///*OSReport*/("Testing %s %X %X %X\n", viewObj->mKeyName, viewObj->mPerformFlags, viewObj->getType(), *(u32*)viewObj);
+            //    if(*(u32*)viewObj == 0x803c0f5c || *(u32*)0x803C0F5C) { // JDrama::TViewObjPtrListT
+            //        JDrama::TViewObjPtrListT<JDrama::TViewObj>* list = reinterpret_cast<JDrama::TViewObjPtrListT<JDrama::TViewObj>*>(viewObj);
+            //        //OSReport("JDrama::TViewObjPtrListT\n");
+            //        auto it2 = list->mViewObjList.begin();
+            //        auto end2 = list->mViewObjList.end();
+            //        while(it2 != end2) {
+            //            JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
+            //            //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
+            //            it2++;
+            //        }
+            //    }
+            //    if(*(u32*)viewObj == 0x803da444 || *(u32*)0x803DA444) { // TIdxGroupObj (also a TViewObjPtrList)
+            //        TIdxGroupObj* list = reinterpret_cast<TIdxGroupObj*>(viewObj);
+            //        auto it2 = list->mViewObjList.begin();
+            //        auto end2 = list->mViewObjList.end();
+            //        //OSReport("TIdxGroupObj\n");
+            //        while(it2 != end2) {
+            //            JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
+            //            //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
+            //            it2++;
+            //        }
+            //    }
+            //    if(*(u32*)viewObj == 0x803ad958) { // TConductor
+            //        TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
+            //        //OSReport("Conductor\n");
+            //            /*OSReport("  Conductor first head  %X %X %X %X\n", (u32)conductor->_30.mIterator, (u32)conductor->_30.mNext, (u32)conductor->_30.mPrevious, (u32)conductor->_30.mValue);*/
+            //        
+            //        /*conductor->perform(0x1001, graphicsPointer);
+            //        conductor->perform(0x2001, graphicsPointer);
+            //        conductor->perform(0x1, graphicsPointer);
+            //        conductor->perform(0x3001, graphicsPointer);*/
+            //        //conductor->perform(0x2, graphicsPointer);
+            //        //OSReport("Conductor manager _10\n");
+            //        printList(conductor->_10, 2);
+            //        ////OSReport("Conductor manager _20\n");
+            //        //printList(conductor->_20);
+            //        ////OSReport("Conductor manager _30\n");
+            //        //printList(conductor->_30, 1);
+            //        ////OSReport("Conductor manager _40\n");
+            //        //printList(conductor->_40);
+            //        ////OSReport("Conductor manager _50\n");
+            //        //printList(conductor->_50);
+            //        ////OSReport("Conductor manager _60\n");
+            //        //printList(conductor->_60);
+            // /*       OSReport("Conductor enemy manager _70\n");
+            //        printList(conductor->_70);*/
+            //    }
+            //    it = it->mNext;
+            //}
             /*director->mPerformListCalcAnim->perform(0x1001, graphicsPointer);
             director->mPerformListCalcAnim->perform(0x2001, graphicsPointer);
             director->mPerformListCalcAnim->perform(0x1, graphicsPointer);

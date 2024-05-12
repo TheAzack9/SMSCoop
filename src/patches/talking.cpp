@@ -8,6 +8,7 @@
 #include <SMS/GC2D/Talk2D2.hxx>
 #include <JSystem/JDrama/JDRGraphics.hxx>
 #include <SMS/System/Application.hxx>
+#include <SMS/MSound/MSoundSESystem.hxx>
 
 #include "players.hxx"
 #include "splitscreen.hxx"
@@ -73,7 +74,8 @@ namespace SMSCoop {
 		}
 	}
 
-	
+	//u32 soundId = 0x78ab;
+	//int cooldown = 0;
 	void updateTalking(TMarDirector *director) {
 		bool someoneTalking = false;
 		for(int i = 0; i < getPlayerCount(); ++i) {
@@ -89,6 +91,28 @@ namespace SMSCoop {
 		}
 
 		playerIdPerFrame = (playerIdPerFrame+1) % getPlayerCount();
+
+		// Best way i've found to search sound ids 
+		//if(cooldown <= 0) {
+		//	TMario* player0 = getMario(0);
+		//	const JUTGamePad::CButton &buttons = player0->mController->mButtons;
+		//	if((buttons.mFrameInput & TMarioGamePad::DPAD_DOWN) != 0) {
+		//		soundId++;
+		//		cooldown = 1;
+		//		OSReport("PLAYING SOUND %X \n", soundId);
+		//		player0->startVoice(soundId);
+		//	}
+		//	if((buttons.mFrameInput & TMarioGamePad::DPAD_UP) != 0) {
+		//		soundId--;
+		//		cooldown = 1;
+		//		OSReport("PLAYING SOUND %X \n", soundId);
+		//		player0->startVoice(soundId);
+		//	}
+		//} else {
+		//	cooldown--;
+		//}
+		//gpMSound->startMarioVoice(soundId);
+
 			
 		if(!someoneTalking) {
 			marioIdTalking = -1;
