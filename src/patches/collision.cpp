@@ -1,6 +1,5 @@
 #include <sdk.h>
 
-#define NTSCU
 #include <raw_fn.hxx>
 
 #include <SMS/Strategic/HitActor.hxx>

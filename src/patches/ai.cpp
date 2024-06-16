@@ -1,5 +1,4 @@
 #include <sdk.h>
-#define NTSCU
 #include <raw_fn.hxx>
 
 #include <SMS/Strategic/HitActor.hxx>
@@ -864,6 +863,26 @@ namespace SMSCoop {
 		}
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803d2bc4, 0, 0, 0), (u32)(&TResetFruit_perform_override));
+
+	// TTelesa
+	void TTelesa_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+		if(performFlags & 0x1) {
+			int marioId = getClosestMarioId(&placement->mTranslation);
+			setActiveMario(marioId);
+			setCamera(marioId);
+		}
+
+		perform__7TTelesaFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		if(performFlags & 0x1) {
+			setActiveMario(getActiveViewport());
+			setCamera(getActiveViewport());
+		}
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b35c0, 0, 0, 0), (u32)(&TTelesa_perform_override));
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b3778, 0, 0, 0), (u32)(&TTelesa_perform_override));
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b3930, 0, 0, 0), (u32)(&TTelesa_perform_override));
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b3ae8, 0, 0, 0), (u32)(&TTelesa_perform_override));
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b3ca0, 0, 0, 0), (u32)(&TTelesa_perform_override));
 
 	// TElecCarapace / Electrokoopa shell
 	void TElecCarapace_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {

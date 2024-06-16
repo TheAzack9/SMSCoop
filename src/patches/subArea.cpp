@@ -2,7 +2,6 @@
 #include <SMS/Map/Map.hxx>
 #include <SMS/Map/JointObj.hxx>
 #include <System/GameSequence.hxx>
-#define NTSCU
 #include <raw_fn.hxx>
 #include <MTX.h>
 #include <SMS/Camera/CubeManagerBase.hxx>
@@ -180,4 +179,5 @@ namespace SMSCoop {
 		return result;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8021afec, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix2);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80084840, 0, 0, 0), TCubeManagerBase_getInCubeNo_Perspective_Fix2);
 }

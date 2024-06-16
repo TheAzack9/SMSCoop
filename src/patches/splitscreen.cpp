@@ -1,6 +1,6 @@
+#include "splitscreen.hxx"
 #include <sdk.h>
 #include <types.h>
-#define NTSCU
 #include <raw_fn.hxx>
 #include <string.h>
 
@@ -8,6 +8,7 @@
 #include <JSystem/JDrama/JDRGraphics.hxx>
 #include <JSystem/JDrama/JDRRect.hxx>
 #include <JSystem/JDrama/JDRViewport.hxx>
+#include <JSystem/JDrama/JDREfbCtrl.hxx>
 #include <SMS/Strategic/ObjHitCheck.hxx>
 #include <JUtility/JUTTexture.hxx>
 #include <Dolphin/GX.h>
@@ -173,14 +174,60 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802f8d48, 0, 0, 0), setTexCopySrcEfbTex);
 
+    //JUTTexture* screenTextures[2];
+
+    //ASTex thisIsGenious;
+
+    //ASTex* getScreenTextureForPlayer(int playerId) {
+    //    return &thisIsGenious;
+    //}
+
+
+    void iamconfuse(u8 aa, u8 pattern[12][2], u8 vf, u8 vfilter[7]) {
+        OSReport("Filter %X\n", vf);
+        for(int i = 0; i < 7; ++i) {
+            OSReport("%X ", vfilter[i]);
+        }
+        OSReport("\n");
+        GXSetCopyFilter(aa, pattern, vf, vfilter);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801aa7e4, 0, 0, 0), iamconfuse);
+
     // Description: Override TScreenTexture to be half the width for split screen
     // Note: ScreenTexture is already half size for memory optimization? (Or perhaps blurring. Done by sunshine devs)
-    static void TScreenTexture_load_ct_JUTTexture(JUTTexture* texture, int width, int height, u32 fmt) {
+    static void TScreenTexture_load_ct_JUTTexture(JUTTexture* texture, int width, int height, GXTexFmt fmt) {
+        
         if(isSingleplayerLevel()) {
             __ct__10JUTTextureFii9_GXTexFmt(texture, width, height, fmt);
         } else {
-            __ct__10JUTTextureFii9_GXTexFmt(texture, 640/2 / 2, 448/2, fmt);
+            //thisIsGenious.texture = new JUTTexture(width / 2, height, fmt);
+            __ct__10JUTTextureFii9_GXTexFmt(texture, width / 2, height, fmt);
+
+
+            //thisIsGenious.tex = new ATex();
+
+            //GXInitTexObj(&thisIsGenious.tex->screenCopy, thisIsGenious.tex->texData, rw, rh, fmt, 0, 0, 0);
+            //GXInitTexObjLOD(&thisIsGenious.tex->screenCopy, 1, 1, 0.0, 0.0, 0.0, 0, 0, 0);
+
+            //ASTex* hmm = &thisIsGenious;
+
+            //OSReport("DoubleChecking %X %X\n", (u32)&hmm->tex->screenCopy, (u32)hmm->tex);
+            //OSReport("Contents of GXObj\n");
+            //for(int i = 0; i < 8; ++i) {
+            //    OSReport("%X ", hmm->tex->screenCopy.val[i]);
+            //}
+            //OSReport("\n");
+            //OSReport("Contents of GXObj\n");
+            //for(int i = 0; i < 8; ++i) {
+            //    OSReport("%X ", texture->mTexObj2.val[i]);
+            //}
+            //OSReport("\n");
         }
+      /*  screenTextures[0] = texture;
+        if(!isSingleplayerLevel()) {
+            screenTextures[1] = new JUTTexture(width, height, fmt);
+        }*/
+
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8022d4d0, 0, 0, 0), TScreenTexture_load_ct_JUTTexture);
 
@@ -246,17 +293,23 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8021b0b0, 0, 0, 0), testing);
 
+    // Save a bit of memory (enough to load a full second model and not just a half)
+    // Thanks to Mr. Brocoli for the idea
     void* gx_GXInit_alloc_override(u32 size, int flags, JKRHeap* heap) {
-        return JKRHeap::alloc(0x40000, flags, heap);
+        return JKRHeap::alloc(0x65000, flags, heap);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802a7488, 0, 0, 0), gx_GXInit_alloc_override);
-
+    
+    // Save a bit of memory (enough to load a full second model and not just a half)
+    // Thanks to Mr. Brocoli for the idea
     void gx_GXInit_override(void* heap, u32 size) {
-        GXInit(heap, 0x40000);
+        GXInit(heap, 0x65000);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802a7490, 0, 0, 0), gx_GXInit_override);
     
-    void printList(JGadget::TList<TLiveActor *>& list, int type = 0) {
+    // Partial implementation of clip actors recomputing
+    // Seems to work well enough though.
+    void recalculateClipActors(JGadget::TList<TLiveActor *>& list, int type = 0) {
         
         auto it2 = list.begin();
         auto end2 = list.end();
@@ -284,6 +337,7 @@ namespace SMSCoop {
                 /*CPolarSubCamera* camera = getCameraById(0);
                 PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
                 setCamera(0);*/
+                manager->setFlagOutOfCube();
                 //PSMTXIdentity(*(Mtx*)((u32)graphicsPointer + 0xb4));
                 u32 functionAddress = *(u32*)((*(u32*)manager) + 0x48);
                 // Cheeky way of detecting if EnemyManager instance by using unused restoreDrawBuffer as an anchor
@@ -302,7 +356,6 @@ namespace SMSCoop {
 
                 //manager->clipActors(graphicsPointer); // FIXME: Unsure why this has a lot lower clip range than in primary render, problem is that i am calling the function directly, should use vt to look up function...
                 //manager->clipActorsAux(graphicsPointer, 1000.0f, manager->_3c);
-                manager->setFlagOutOfCube();
                 //setCamera(0);
              /*   camera = getCameraById(0);
                 PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));*/
@@ -366,8 +419,15 @@ namespace SMSCoop {
             //}
             //u8* silhouetteAlpha = (u8*)(*gpSilhouetteManager + 0x48 / 4);
             //OSReport("Silhouette alpha %X %d\n", *gpSilhouetteManager, *silhouetteAlpha);
-
-
+            
+            
+            /*JUTTexture* tex = *(JUTTexture**)(*(u32*)(0x8040e0bc) + 0x10);
+            OSReport("Contents of GXObj %X %X\n", tex, &tex->mTexObj2);
+            for(int i = 0; i < 8; ++i) {
+                OSReport("%X ", tex->mTexObj2.val[i]);
+            }
+            OSReport("\n");*/
+            //*(JUTTexture**)(*(u32*)(0x8040e0bc) + 0x10) = screenTextures[1];
             setViewport(0);
             setActiveMario(0);
             setCamera(0);
@@ -410,7 +470,7 @@ namespace SMSCoop {
 	        //*(u32*)((u32)gpCubeFastB + 0x1c) = cubeNo;
          //   cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
 	        //*(u32*)((u32)gpCubeFastC + 0x1c) = cubeNo;
-            
+         //   
                 gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
                 gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
                 gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
@@ -424,61 +484,61 @@ namespace SMSCoop {
 
             //OSReport("\n\n\n\n");
         
-            //
-            //auto it = director->mPerformListCalcAnim->begin();
-            //auto end = director->mPerformListCalcAnim->end();
-            //while(it != end) {
-            //    JDrama::TViewObj* viewObj = reinterpret_cast<JDrama::TViewObj*>(it->mData);
-            //    ///*OSReport*/("Testing %s %X %X %X\n", viewObj->mKeyName, viewObj->mPerformFlags, viewObj->getType(), *(u32*)viewObj);
-            //    if(*(u32*)viewObj == 0x803c0f5c || *(u32*)0x803C0F5C) { // JDrama::TViewObjPtrListT
-            //        JDrama::TViewObjPtrListT<JDrama::TViewObj>* list = reinterpret_cast<JDrama::TViewObjPtrListT<JDrama::TViewObj>*>(viewObj);
-            //        //OSReport("JDrama::TViewObjPtrListT\n");
-            //        auto it2 = list->mViewObjList.begin();
-            //        auto end2 = list->mViewObjList.end();
-            //        while(it2 != end2) {
-            //            JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
-            //            //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
-            //            it2++;
-            //        }
-            //    }
-            //    if(*(u32*)viewObj == 0x803da444 || *(u32*)0x803DA444) { // TIdxGroupObj (also a TViewObjPtrList)
-            //        TIdxGroupObj* list = reinterpret_cast<TIdxGroupObj*>(viewObj);
-            //        auto it2 = list->mViewObjList.begin();
-            //        auto end2 = list->mViewObjList.end();
-            //        //OSReport("TIdxGroupObj\n");
-            //        while(it2 != end2) {
-            //            JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
-            //            //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
-            //            it2++;
-            //        }
-            //    }
-            //    if(*(u32*)viewObj == 0x803ad958) { // TConductor
-            //        TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
-            //        //OSReport("Conductor\n");
-            //            /*OSReport("  Conductor first head  %X %X %X %X\n", (u32)conductor->_30.mIterator, (u32)conductor->_30.mNext, (u32)conductor->_30.mPrevious, (u32)conductor->_30.mValue);*/
-            //        
-            //        /*conductor->perform(0x1001, graphicsPointer);
-            //        conductor->perform(0x2001, graphicsPointer);
-            //        conductor->perform(0x1, graphicsPointer);
-            //        conductor->perform(0x3001, graphicsPointer);*/
-            //        //conductor->perform(0x2, graphicsPointer);
-            //        //OSReport("Conductor manager _10\n");
-            //        printList(conductor->_10, 2);
-            //        ////OSReport("Conductor manager _20\n");
-            //        //printList(conductor->_20);
-            //        ////OSReport("Conductor manager _30\n");
-            //        //printList(conductor->_30, 1);
-            //        ////OSReport("Conductor manager _40\n");
-            //        //printList(conductor->_40);
-            //        ////OSReport("Conductor manager _50\n");
-            //        //printList(conductor->_50);
-            //        ////OSReport("Conductor manager _60\n");
-            //        //printList(conductor->_60);
-            // /*       OSReport("Conductor enemy manager _70\n");
-            //        printList(conductor->_70);*/
-            //    }
-            //    it = it->mNext;
-            //}
+            
+            auto it = director->mPerformListCalcAnim->begin();
+            auto end = director->mPerformListCalcAnim->end();
+            while(it != end) {
+                JDrama::TViewObj* viewObj = reinterpret_cast<JDrama::TViewObj*>(it->mData);
+                ///*OSReport*/("Testing %s %X %X %X\n", viewObj->mKeyName, viewObj->mPerformFlags, viewObj->getType(), *(u32*)viewObj);
+                //if(*(u32*)viewObj == 0x803c0f5c || *(u32*)0x803C0F5C) { // JDrama::TViewObjPtrListT
+                //    JDrama::TViewObjPtrListT<JDrama::TViewObj>* list = reinterpret_cast<JDrama::TViewObjPtrListT<JDrama::TViewObj>*>(viewObj);
+                //    //OSReport("JDrama::TViewObjPtrListT\n");
+                //    auto it2 = list->mViewObjList.begin();
+                //    auto end2 = list->mViewObjList.end();
+                //    while(it2 != end2) {
+                //        JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
+                //        //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
+                //        it2++;
+                //    }
+                //}
+                //if(*(u32*)viewObj == 0x803da444 || *(u32*)0x803DA444) { // TIdxGroupObj (also a TViewObjPtrList)
+                //    TIdxGroupObj* list = reinterpret_cast<TIdxGroupObj*>(viewObj);
+                //    auto it2 = list->mViewObjList.begin();
+                //    auto end2 = list->mViewObjList.end();
+                //    //OSReport("TIdxGroupObj\n");
+                //    while(it2 != end2) {
+                //        JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
+                //        //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
+                //        it2++;
+                //    }
+                //}
+                if(*(u32*)viewObj == 0x803ad958) { // TConductor
+                    TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
+                    //OSReport("Conductor\n");
+                        /*OSReport("  Conductor first head  %X %X %X %X\n", (u32)conductor->_30.mIterator, (u32)conductor->_30.mNext, (u32)conductor->_30.mPrevious, (u32)conductor->_30.mValue);*/
+                    
+                    /*conductor->perform(0x1001, graphicsPointer);
+                    conductor->perform(0x2001, graphicsPointer);
+                    conductor->perform(0x1, graphicsPointer);
+                    conductor->perform(0x3001, graphicsPointer);*/
+                    //conductor->perform(0x2, graphicsPointer);
+                    //OSReport("Conductor manager _10\n");
+                    recalculateClipActors(conductor->_10, 2);
+                    ////OSReport("Conductor manager _20\n");
+                    //printList(conductor->_20);
+                    ////OSReport("Conductor manager _30\n");
+                    //printList(conductor->_30, 1);
+                    ////OSReport("Conductor manager _40\n");
+                    //printList(conductor->_40);
+                    ////OSReport("Conductor manager _50\n");
+                    //printList(conductor->_50);
+                    ////OSReport("Conductor manager _60\n");
+                    //printList(conductor->_60);
+             /*       OSReport("Conductor enemy manager _70\n");
+                    printList(conductor->_70);*/
+                }
+                it = it->mNext;
+            }
             /*director->mPerformListCalcAnim->perform(0x1001, graphicsPointer);
             director->mPerformListCalcAnim->perform(0x2001, graphicsPointer);
             director->mPerformListCalcAnim->perform(0x1, graphicsPointer);
@@ -500,21 +560,49 @@ namespace SMSCoop {
             //    perform__10TLensFlareFUlPQ26JDrama9TGraphics(g_sunLensFlare, 0x7, graphicsPointer);
             //}
 
+            
+
             // Update + goop stamp (game freezes with goop stamps otherwise :c)
             director->mPerformListUnk1->perform(0x1000000, graphicsPointer); // Need to do some preparation for goop maps
             director->mPerformListUnk2->perform(0x20f0000, graphicsPointer); // Unsure exactly what happens, but this works without drawing a black square to the screen
+
             director->mPerformListGX->perform(0xffffffff, graphicsPointer);
-            
+
+            //
+            //int width = 640;
+            //int height = 448;
+            //
+            //GXSetTexCopySrc(0, 0, width, height);
+
+            ////u8 vfilter[7];
+            ////vfilter[0] = 0x15;
+            ////vfilter[1] = 0x0;
+            ////vfilter[2] = 0x0;
+            ////vfilter[3] = 0x16;
+            ////vfilter[4] = 0x0;
+            ////vfilter[5] = 0x0;
+            ////vfilter[6] = 0x15;
+            ////GXSetCopyFilter(0, 0, 1, vfilter);
+            //GXSetTexCopyDst(width / 2, height / 2, 4, 1);
+            //GXColor color;
+            //GXSetCopyClear(color, 0xffffff);
+            //GXCopyTex((void*)thisIsGenious.texture, 0);
+            //GXPixModeSync();
+
             // FIXME should be based on some conditions, check direct in MarDirector
             director->mPerformListSilhouette->testPerform(0xffffffff, graphicsPointer);
+            
 
+            
             director->mPerformListGXPost->perform(0xffffffff, graphicsPointer);
+            
             
             isRenderingOtherPerspectives = false;
             setCamera(1);
             setActiveMario(1);
             setViewport(1);
             setWaterColorForMario(gpMarioOriginal);
+            //*(JUTTexture**)(*(u32*)(0x8040e0bc) + 0x10) = screenTextures[0];
         }
         
         GXInvalidateTexAll(); 
@@ -536,6 +624,49 @@ namespace SMSCoop {
         //OSReport("Mario frame end\n");
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x80299d04, 0, 0, 0), processGXInvalidateTexAll);
+
+
+ //   
+ //   void TEfbCtrlTexture_perform_override(JDrama::TEfbCtrlTex* efbCtrlTex, u32 performFlags, JDrama::TGraphics* graphics) {
+ //       //OSReport("Name %s %X %X\n", efbCtrlTex->mKeyName, performFlags, isRenderingOtherPerspectives);
+ //       //OSReport("It could be time %X %X\n", efbCtrlTex->mKeyName[0], efbCtrlTex->mKeyName[1]);
+
+ //       if(isRenderingOtherPerspectives) {
+ //           if(efbCtrlTex->mKeyName[0] == 0x92) {
+ //               //OSReport("It is time\n");
+ //               
+ //               if(performFlags & 0x8) {
+ //                   int width = 640 / 2;
+ //                   int height = 448;
+ //                   
+ //                   GXColor color;
+ //                   GXSetCopyClear(color, 0xffffff);
+ //                   GXSetColorUpdate(1);
+ //                   GXSetAlphaUpdate(1);
+ //                   GXSetZMode(1, 7, 1);
+ //                   GXSetZCompLoc(1);
+ //                   GXSetTexCopySrc(0, 0, width, height);
+
+ //                   //u8 vfilter[7];
+ //                   //vfilter[0] = 0x15;
+ //                   //vfilter[1] = 0x0;
+ //                   //vfilter[2] = 0x0;
+ //                   //vfilter[3] = 0x16;
+ //                   //vfilter[4] = 0x0;
+ //                   //vfilter[5] = 0x0;
+ //                   //vfilter[6] = 0x15;
+ //                   //GXSetCopyFilter(0, 0, 1, vfilter);
+ //                   GXSetTexCopyDst(width / 2, height / 2, 4, 1);
+ //                   GXCopyTex((void*)thisIsGenious.texture, 0);
+ //                   GXPixModeSync();
+ //               }
+ //           }
+ //       }
+
+ //       perform__Q26JDrama11TEfbCtrlTexFUlPQ26JDrama9TGraphics(efbCtrlTex, performFlags, graphics);
+ //   }
+	//SMS_WRITE_32(SMS_PORT_REGION(0x803e1e70, 0, 0, 0), TEfbCtrlTexture_perform_override);
+
     
  //   void TConductor_perform(TConductor* conductor, u32 perform_flags, JDrama::TGraphics* graphics) {
  //       OSReport("Update with flags %X \n", perform_flags);

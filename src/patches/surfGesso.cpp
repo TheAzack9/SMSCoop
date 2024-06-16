@@ -1,5 +1,4 @@
 #include <sdk.h>
-#define NTSCU
 #include <raw_fn.hxx>
 #include <SMS/MoveBG/Item.hxx>
 #include <SMS/Player/Mario.hxx>

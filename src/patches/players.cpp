@@ -2,14 +2,17 @@
 #include <types.h>
 #include <string.h>
 
-#define NTSCU
 #include <raw_fn.hxx>
 #include <JDrama/JDRNameRef.hxx>
 #include <JDrama/JDRViewObjPtrListT.hxx>
 #include <SMS/Strategic/HitActor.hxx>
 #include <SMS/System/Application.hxx>
+#include <SMS/MarioUtil/DrawUtil.hxx>
+#include <SMS/M3DUtil/MActorKeeper.hxx>
 #include <SMS/Player/Mario.hxx>
 #include <SMS/Manager/FlagManager.hxx>
+#include <SMS/Enemy/EnemyMario.hxx>
+#include <JSystem/J3D/J3DModelLoaderDataBase.hxx>
 
 #include "characters.hxx"
 #include "camera.hxx"
@@ -24,6 +27,37 @@ static u8* isThpInit = (u8*)0x803ec206;
 static u8* ThpState = (u8*)0x803ec204;
 
 namespace SMSCoop {
+	typedef struct EMario_t{
+		void* Type;			//0
+		void* u2;
+		int u3;
+		int u4;	
+		TVec3f position;	//10
+		int u5;
+		void* u6;			//20
+		TVec3f scale;
+		TVec3f direction;	//30
+		void* u7;
+		void* u8;			//40
+		THitActor** colarray;
+		u16 colcount;
+		u16 colarraysize;
+		int colsettings;
+		float bound1;			//50
+		float bound2;
+		float bound3;
+		float bound4;
+		float bound5;			//60
+		int colflags;
+		int u18;
+		int u19;
+		void* u20;			//70
+		void* u21[55];
+		TEnemyMario* enemymario;
+		u16 u22[7];
+	} EMario;
+
+
 	typedef struct {
 		TVec3f startPosition;
 		u16 marioAngle;
@@ -35,6 +69,11 @@ namespace SMSCoop {
 	static u8 loadedMarios = 0;
 	static TMario* marios[MARIO_COUNT];
 	static bool isMarioCurrentlyLoadingViewObj = false;
+
+	static TMActorKeeper* testingkeeper;
+	static MActorAnmData* testAnimData = nullptr;
+	static MActor* testing = nullptr;
+	static J3DModel* testModel = nullptr;
 
 	void setActiveMario(int id) {
 		if(id > loadedMarios) return;
@@ -105,6 +144,40 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029d7d8, 0, 0, 0), TMarioStrCmp_Override);
 	 
+	//
+	//void* setModelSizeForMario(u32 size) {
+	//	OSReport("HMMM %X \n", 0x1c);
+	//	return __nwa__FUl(0x1c);
+	//}
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x80246720, 0, 0, 0), setModelSizeForMario);
+	//void try_make_sdl_model_for_mario(J3DModel* model, J3DModelData* modelData, u32 unk1, u32 unk2) {
+	//	
+	//	//replace__14TScreenTextureFP12J3DModelDataPCc(*(u32**)0x8040e0bc, modelData, "H_kagemario_dummy");
+
+	//	void* sdlModelData = __nwa__FUl(0x1c);
+	//	__ct__12SDLModelDataFP12J3DModelData(sdlModelData, modelData);
+
+	//	//__ct__8SDLModelFP12SDLModelDataUlUl(model, sdlModelData, unk1, unk2);
+	//	/*testAnimData = new MActorAnmData();
+	//	init__13MActorAnmDataFPCcPPCc(testAnimData, "/mario/btk");
+	//	testing = new MActor(testAnimData);*/
+	//	////testing->setModel(mario->mModelData->mModel, 0);
+
+	//	//void* resource = JKRFileLoader::getGlbResource("/mario/default.bmd");
+	//	//if(resource != nullptr) {
+	//	//	J3DModelData* data = J3DModelLoaderDataBase::load(resource, 0);
+	//	//	testModel = new J3DModel(data, 0, 1);
+	//		//testing->setModel(model, 0);
+	//}
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x8024673c, 0, 0, 0), try_make_sdl_model_for_mario);
+
+	void finalDrawInitialize_override(TMario* mario) {
+		if(getPlayerId(mario) != 1) {
+			mario->finalDrawInitialize();
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80276bb0, 0, 0, 0), finalDrawInitialize_override);
+
 	// Description: We hook into the load to get a pointer to TViewObjPtrListT to be able to add viewObjs manually
 	JDrama::TViewObjPtrListT<THitActor,JDrama::TViewObj>* mario_viewObjPtrList = 0;
 	void JDrama_TViewObjPtrListT_load(JDrama::TViewObjPtrListT<THitActor,JDrama::TViewObj>* viewObjPtrList,JSUMemoryInputStream *param_1) {
@@ -112,7 +185,24 @@ namespace SMSCoop {
 		load__Q26JDrama47TViewObjPtrListT_9(viewObjPtrList, param_1);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80223548, 0, 0, 0), JDrama_TViewObjPtrListT_load);
-	
+
+	// Allow animated texture
+	SMS_WRITE_32(SMS_PORT_REGION(0x802465e8, 0, 0, 0), 0x3c801130);
+	/*
+	void TMario_initModel_override(TMario* mario) {
+		if(getPlayerId(mario) == 1) {
+			initModel__11TEnemyMarioFv(mario);
+			return;
+		}
+		initModel__6TMarioFv(mario);
+
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803dd730, 0, 0, 0), (u32)(&TMario_initModel_override));*/
+
+	struct SDLModelData {
+		u32 unk[7];
+	};
+
 	#define load__6TMarioFR20JSUMemoryInputStream         ((int (*)(...))0x80276BD0)
 	// Description: The loading of the mario nameRef section.
 	// Optimization: See if we can re-use the instance created in genObject instead of deleting.
@@ -137,12 +227,83 @@ namespace SMSCoop {
 				if(i != 0) {
 					mario = new TMario();
 				}
+				
+				
 				marios[i] = mario;
 				mario->load(*memoryStream);
+				
 				
 				if(i != 0) {
 					mario->mKeyName = "Luigi";
 					mario->mKeyCode = JDrama::TNameRef::calcKeyCode("Luigi");
+				}
+
+				if(i == 1) {
+				
+					OSReport("Starting of Luigi animation load\n");
+				
+					TMario* mario = getMario(1);
+					setActiveMarioArchive(1);
+
+					//testingkeeper = new TMActorKeeper(nullptr, 1);
+					//testingkeeper->mModelFlags = 0x11300000;
+
+					//OSReport("Keeper %X\n", testingkeeper);
+					
+	//	//void* resource = JKRFileLoader::getGlbResource("/mario/default.bmd");
+	//	//if(resource != nullptr) {
+	//	//	J3DModelData* data = J3DModelLoaderDataBase::load(resource, 0);
+	//	//	testModel = new J3DModel(data, 0, 1);
+	//		//testing->setModel(model, 0);
+	////}
+					/*
+					void* resource = JKRFileLoader::getGlbResource("/mario/bmd/ma_mdl1.bmd");
+					J3DModelData* data = J3DModelLoaderDataBase::load(resource, 0);
+					SDLModelData* modelData = new SDLModelData();
+					__ct__12SDLModelDataFP12J3DModelData(modelData, data);
+					testModel = new J3DModel(data, 0, 1);*/
+					
+					testAnimData = new MActorAnmData();
+					init__13MActorAnmDataFPCcPPCc(testAnimData, "mario/btk");
+					/*testingkeeper->mAnmData = testAnimData;
+					testing = (MActor*)createAndRegister__13TMActorKeeperFP12SDLModelDataUl(testingkeeper, modelData, 0);*/
+					testing = new MActor(testAnimData);
+					testing->unlockDLIfNeed();
+					testing->initDL();
+					testing->setModel(mario->mModelData->mModel, 0);
+					//testing = testingkeeper->createAndRegister(modelData, 0);
+					//testing->setModel(testModel, 0x0);
+
+					OSReport("Exists %X\n", testing->checkAnmFileExist("animation", 4));
+					testing->setBtk("animation");
+
+					f32 framerate = SMSGetAnmFrameRate();
+					J3DFrameCtrl* ctrl = testing->getFrameCtrl(4);
+					ctrl->mFrameRate = framerate;
+					ctrl->mAnimState = J3DFrameCtrl::LOOP;
+
+					testing->setLightType(3);
+
+					//SMS_MakeDLAndLock(testing->mModel);
+					//OSReport("Animation Id %X %X\n", testing->mBtkInfo, testing->mBtkInfo->mFrameCtrl);
+			////testing->setModel(mario->mModelData->mModel, 0);
+
+						//replace__14TScreenTextureFP12J3DModelDataPCc(*(u32**)0x8040e0bc, data, "H_kagemario_dummy");
+						/*
+					for(u32 i = 0; i < testing->mModel->mModelData->mJointNum; ++i) {
+						SMS_InitPacket_Fog__FP8J3DModelUs(testing->mModel, i & 0xffff);
+					}*/
+					/*	replace__14TScreenTextureFP12J3DModelDataPCc(getScreenTextureForPlayer(1), mario->mBodyModelData, "H_kagemario_dummy");*/
+				/*		replace__14TScreenTextureFP12J3DModelDataPCc(getScreenTextureForPlayer(1), mario->mBodyModelData, "H_kagemario_indwp4n_ia");*/
+						replace__14TScreenTextureFP12J3DModelDataPCc(*(u32**)0x8040e0bc, mario->mBodyModelData, "H_kagemario_dummy");
+						/*replace__14TScreenTextureFP12J3DModelDataPCc(getScreenTextureForPlayer(1), testing->mModel->mModelData, "H_kagemario_dummy");*/
+					//}
+
+						
+					//testing->setBtk("animation");
+
+					//OSReport("HMMM %X %X \n", (u32)testAnimData, (u32)testing);
+					OSReport("Luigi animation load finished\n");
 				}
 
 				mario_viewObjPtrList->mViewObjList.push_back(mario);
@@ -288,7 +449,39 @@ namespace SMSCoop {
 
 		}
 
-		perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
+		
+		if(getPlayerId(mario) == 1) {
+			
+			if(param_1 & 0x1) {
+				testing->frameUpdate();
+			}
+
+			if((param_1 & 0x200) == 0) {
+				perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
+			} else {
+				testing->entryIn();
+				perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
+				testing->entryOut();
+			}
+
+			if((param_1 & (0x200)) != 0) {
+				/*PSMTXCopy(*mario->getRootAnmMtx(), testing->mModel->mBaseMtx);
+				testing->perform(param_1, param_2);*/
+				/*if(param_1 & 200) {
+					testing->entry();
+				
+				}
+				testing->perform(param_1, param_2);*/
+				//OSReport("Testing %X\n", testing->isCurAnmAlreadyEnd(4));
+			} else {
+				//perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
+			}
+						//replace__14TScreenTextureFP12J3DModelDataPCc(*(u32**)0x8040e0bc, mario->mBodyModelData, "H_kagemario_dummy");
+		} else {
+			perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
+		}
+		
+
 		SimulateEscapeHeld(mario);
 		
 		// Fix for mario silhouette

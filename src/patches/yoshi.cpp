@@ -2,7 +2,6 @@
 #include <SMS/Player/Yoshi.hxx>
 #include <SMS/Manager/ModelWaterManager.hxx>
 
-#define NTSCU
 #include <raw_fn.hxx>
 
 #include "players.hxx"

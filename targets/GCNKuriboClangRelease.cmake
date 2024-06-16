@@ -25,8 +25,8 @@ set(CMAKE_CXX_STANDARD_LIBRARIES "")
 set(SMS_REGION us)
 
 set(SMS_COMPILE_DEFINES
-    -D__powerpc__ -DKURIBO_NO_TYPES
-    -DGEKKO
+    -D__powerpc__ -DKURIBO_NO_TYPES -DNTSCU
+    -DGEKKO -DNDEBUG
 )
 
 set(SMS_COMPILE_FLAGS
@@ -35,7 +35,7 @@ set(SMS_COMPILE_FLAGS
 
     ${SMS_COMPILE_DEFINES}
 
-	-Os -fno-inline -fno-exceptions 
+	-Os -fno-exceptions 
     -fno-rtti -ffast-math -fpermissive
     -fdeclspec -fno-unwind-tables
     -nodefaultlibs -nobuiltininc -nostdinc++ -nostdlib
@@ -50,6 +50,7 @@ set(SMS_COMPILE_FLAGS
 set(SMS_LINK_FLAGS
     $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++17>
     --target=${CMAKE_CXX_COMPILER_TARGET}
+
     -r -v -fuse-ld=lld
     -fdeclspec -fno-exceptions -fno-rtti
     -fno-unwind-tables -ffast-math
