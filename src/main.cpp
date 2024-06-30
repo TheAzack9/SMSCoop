@@ -482,7 +482,7 @@ void TApplication_custom_proc(TApplication* app) {
 static pp::togglable_ppc_bl my_patch((u32)SMS_PORT_REGION(0x80005624, 0, 0, 0), (void*)TApplication_custom_proc, false);
 
 void setDebug(TApplication *application) {
-    BetterSMS::setDebugMode(true);
+    //BetterSMS::setDebugMode(true);
 }
 
 
@@ -522,7 +522,8 @@ static void initModule() {
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateShine", SMSCoop::updateShineTimer);
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateSurfGesso", SMSCoop::updateSurfGesso);
     BetterSMS::Stage::registerInitCallback("SMSCoop_resetShineLogic", SMSCoop::resetShineLogic);
-    SMSCoop::setSkinForPlayer(1, "/data/luigi.arc");
+    SMSCoop::setSkinForPlayer(0, "/data/kagemario.arc", true, 0, 2);
+    SMSCoop::setSkinForPlayer(1, "/data/kagemario.arc", true, 2, 2);
 
     // Display warning in game if memory not expanded
     //if(!isMemoryExpanded()) {

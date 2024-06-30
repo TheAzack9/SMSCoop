@@ -52,29 +52,28 @@ namespace SMSCoop {
     TSunModel* g_sunModel;
     void* g_sunLensFlare;
     void* g_sunLensGlow;
+    bool isHorizontal = false;
+
+    const static JDrama::TRect ORIGNAL_VIEWPORT = { 0, 0, 640, 448 };
+    const static JDrama::TRect SCREEN_VIEWPORTS[4] = {
+        { 0, 0, 320, 448 },
+        { 320, 0, 640, 448 },
+        { 0, 0, 640, 224 },
+        { 0, 224, 640, 448 },
+    };
 
     int perspective = 0;
     
     // Description: Set active viewport for player
     void setViewport(int player) {
         perspective = player;
-        if(player == 0) {
-            gViewport->mViewportRect.mX1 = 0;
-            gViewport->mViewportRect.mX2 = 320;
-        } else {
-            gViewport->mViewportRect.mX1 = 320;
-            gViewport->mViewportRect.mX2 = 640;
-        }
+
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        gViewport->mViewportRect = viewport;
         gViewport->perform(0x88, graphicsPointer);
         
         if(gScreen2DViewport) {
-            if(player == 0) {
-                gScreen2DViewport->mViewportRect.mX1 = 0;
-                gScreen2DViewport->mViewportRect.mX2 = 320;
-            } else {
-                gScreen2DViewport->mViewportRect.mX1 = 320;
-                gScreen2DViewport->mViewportRect.mX2 = 640;
-            }
+            gScreen2DViewport->mViewportRect = viewport;
             gScreen2DViewport->perform(0x88, graphicsPointer);
         }
 
@@ -118,11 +117,11 @@ namespace SMSCoop {
 
     // Description: Get's an instance of the 3d viewport
     // FIXME: Get this from name ref instead
-    static void TNameRefGe_getNameRef_createViewport(JDrama::TViewport* viewport, JDrama::TRect* rect, const char* name) {
+    static void TNameRefGen_getNameRef_createViewport(JDrama::TViewport* viewport, JDrama::TRect* rect, const char* name) {
         gViewport = viewport;
         __ct__Q26JDrama9TViewportFRCQ26JDrama5TRectPCc(viewport, rect, name);
     }
-    SMS_PATCH_BL(SMS_PORT_REGION(0x802fb52c, 0, 0, 0), TNameRefGe_getNameRef_createViewport);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x802fb52c, 0, 0, 0), TNameRefGen_getNameRef_createViewport);
     
     // Description: Get's an instance of the ui viewport
     // FIXME: Get this from name ref instead
@@ -149,49 +148,30 @@ namespace SMSCoop {
     static void TViewport_perform_setViewport(JDrama::TGraphics* graphics, JDrama::TRect& rect, f32 far, f32 near) { 
         graphicsPointer = graphics;
         graphics->setViewport(rect, far, near);
-        graphicsPointer->mViewPortSpace.mX1 = 0;
-        graphicsPointer->mViewPortSpace.mX2 = 640;
-        graphicsPointer->mViewPortSpace.mY1 = 0;
-        graphicsPointer->mViewPortSpace.mY2 = 448;
+        graphicsPointer->mViewPortSpace = ORIGNAL_VIEWPORT;
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802fcdc0, 0, 0, 0), TViewport_perform_setViewport);
 
     // TODO: Rewrite this override EfbCtrlTex_perform instead and store a reference to the EfbCtrlTex that should
     // be changed to correct size. Checking the width is very hacky
     static void setTexCopySrcEfbTex(u16 left, u16 top, u16 wd, u16 ht) {
-        if(!isSingleplayerLevel()) {
-            if(wd == 640 && perspective == 0) {
-                left = 0;
-                wd = 320;
-            }
-            if(wd == 640 && perspective == 1) {
-                left = 320;
-                wd = 320;
-            }
+        if(!isSingleplayerLevel() && wd == 640) {
+            const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+            left = viewport.mX1;
+            top = viewport.mY1;
+            wd = viewport.mX2 - viewport.mX1;
+            ht = viewport.mY2 - viewport.mY1;
         }
 
         GXSetTexCopySrc(left, top, wd, ht);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802f8d48, 0, 0, 0), setTexCopySrcEfbTex);
-
-    //JUTTexture* screenTextures[2];
-
-    //ASTex thisIsGenious;
-
-    //ASTex* getScreenTextureForPlayer(int playerId) {
-    //    return &thisIsGenious;
-    //}
-
-
-    void iamconfuse(u8 aa, u8 pattern[12][2], u8 vf, u8 vfilter[7]) {
-        OSReport("Filter %X\n", vf);
-        for(int i = 0; i < 7; ++i) {
-            OSReport("%X ", vfilter[i]);
-        }
-        OSReport("\n");
-        GXSetCopyFilter(aa, pattern, vf, vfilter);
-    }
-    SMS_PATCH_BL(SMS_PORT_REGION(0x801aa7e4, 0, 0, 0), iamconfuse);
+    
+    // Disable telop / scrolling text / debs alert
+    // TODO: Verify if this is causing slowdown or not.
+    // Tbh, should scroll over entire screen, but that is hard...
+    // Should at least fix it properly, might be necessary in a mod
+    SMS_WRITE_32(SMS_PORT_REGION(0x8014b454, 0, 0, 0), 0x4e800020);
 
     // Description: Override TScreenTexture to be half the width for split screen
     // Note: ScreenTexture is already half size for memory optimization? (Or perhaps blurring. Done by sunshine devs)
@@ -201,7 +181,11 @@ namespace SMSCoop {
             __ct__10JUTTextureFii9_GXTexFmt(texture, width, height, fmt);
         } else {
             //thisIsGenious.texture = new JUTTexture(width / 2, height, fmt);
-            __ct__10JUTTextureFii9_GXTexFmt(texture, width / 2, height, fmt);
+            if(isHorizontal) {
+                __ct__10JUTTextureFii9_GXTexFmt(texture, width, height / 2, fmt);
+            } else {
+                __ct__10JUTTextureFii9_GXTexFmt(texture, width / 2, height, fmt);
+            }
 
 
             //thisIsGenious.tex = new ATex();
@@ -316,21 +300,9 @@ namespace SMSCoop {
         while(it2 != end2) {
             JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
             if(type == 1) { // Alone actors (whatever that means)
-                //TLiveActor* liveActor = reinterpret_cast<TLiveActor*>(*it2);
-                //liveActor->mStateFlags.asFlags.mCullModel = true;
                 obj2->mPerformFlags |= 0x4;
             } else if (type == 2) { // TLiveManager
 
-                //TMario* currentMario = getMario(0);
-                //Vec marioPos;
-                //marioPos.x = currentMario->mTranslation.x;
-                //marioPos.y = currentMario->mTranslation.y + 75.0;
-                //marioPos.z = currentMario->mTranslation.z;
-                ////gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
-                //gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
-                //gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
-                //gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
-                ////OSReport("Testing %X %X %X %X \n", (u32)&gpCubeFastA->mCurrentCube - (u32)gpCubeFastA, gpCubeFastA->mCurrentCube, gpCubeFastB->mCurrentCube, gpCubeFastC->mCurrentCube);
 
                 TLiveManager* manager = reinterpret_cast<TLiveManager*>(*it2);
                 //manager->perform(0x2, graphicsPointer);
@@ -403,6 +375,11 @@ namespace SMSCoop {
 
     bool isRenderingOtherPerspectives = false;
 
+    // Set reduce output texture of mirror draw pass to 128x128 (from 256x256)
+    // Saves a lot of memory + removes black box that appears because of render pass...
+    SMS_WRITE_32(SMS_PORT_REGION(0x80193db8, 0, 0, 0), 0x38a00080);
+    SMS_WRITE_32(SMS_PORT_REGION(0x80193d34, 0, 0, 0), 0x38600080);
+    SMS_WRITE_32(SMS_PORT_REGION(0x80193d38, 0, 0, 0), 0x38800080);
 
 
     // Description: Before doing GXInvalidate, render other players perspective
@@ -411,8 +388,23 @@ namespace SMSCoop {
         //OSReport("Starting p2 screen \n");
         //OSReport("Mario frame start\n");
         TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
+        //if(!isSingleplayerLevel()) {
+        //    const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        //    GXSetTexCopySrc(viewport.mX1, viewport.mY1, viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1);
+        //    GXSetTexCopyDst(viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1, GXTexFmt::GX_TF_RGB565, GX_FALSE);
+        //    //GXCopyDisp(tempTexture, GX_FALSE);
+        //    GXCopyTex(tempTexture, GX_FALSE);
+        //}
         GXInvalidateTexAll(); 
         if(!isSingleplayerLevel()) {
+            
+
+            //GXTexObj texObj;
+            //GXInitTexObj(&texObj, tempTexture, viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1, GXTexFmt::GX_TF_RGB565, 0, 0, 0);
+            //GXInitTexObjLOD(&texObj, 0, 0, 0, 0.0, 0.0, 0, 0, 0);
+            //GXLoadTexObj(&texObj, 0);
+
+
             //if(*gpSilhouetteManager) {
             //    u8* silhouetteAlpha = (u8*)(*gpSilhouetteManager + 0x48);
             //    //*silhouetteAlpha = 128;
@@ -450,15 +442,15 @@ namespace SMSCoop {
             //VIWaitForRetrace();
 
             // TODO: Create a custom perform list of things that must update before drawing on p2 screen
-            //if(g_sunModel) {
-            //    calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
-            //    //g_sunModel->getZBufValue();
-            //    perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
-            //}
+            if(g_sunModel) {
+                calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
+                //g_sunModel->getZBufValue();
+                perform__9TSunModelFUlPQ26JDrama9TGraphics(g_sunModel, 0x7, graphicsPointer);
+            }
 
-            //if(g_sun) {
-            //    perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
-            //}
+            if(g_sun) {
+                perform__7TSunMgrFUlPQ26JDrama9TGraphics(g_sun, 0x7, graphicsPointer);
+            }
 
             TMarDirector_movement_game_override(director);
 
@@ -514,42 +506,13 @@ namespace SMSCoop {
                 //}
                 if(*(u32*)viewObj == 0x803ad958) { // TConductor
                     TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
-                    //OSReport("Conductor\n");
-                        /*OSReport("  Conductor first head  %X %X %X %X\n", (u32)conductor->_30.mIterator, (u32)conductor->_30.mNext, (u32)conductor->_30.mPrevious, (u32)conductor->_30.mValue);*/
-                    
-                    /*conductor->perform(0x1001, graphicsPointer);
-                    conductor->perform(0x2001, graphicsPointer);
-                    conductor->perform(0x1, graphicsPointer);
-                    conductor->perform(0x3001, graphicsPointer);*/
-                    //conductor->perform(0x2, graphicsPointer);
-                    //OSReport("Conductor manager _10\n");
                     recalculateClipActors(conductor->_10, 2);
-                    ////OSReport("Conductor manager _20\n");
-                    //printList(conductor->_20);
-                    ////OSReport("Conductor manager _30\n");
-                    //printList(conductor->_30, 1);
-                    ////OSReport("Conductor manager _40\n");
-                    //printList(conductor->_40);
-                    ////OSReport("Conductor manager _50\n");
-                    //printList(conductor->_50);
-                    ////OSReport("Conductor manager _60\n");
-                    //printList(conductor->_60);
-             /*       OSReport("Conductor enemy manager _70\n");
-                    printList(conductor->_70);*/
                 }
                 it = it->mNext;
             }
-            /*director->mPerformListCalcAnim->perform(0x1001, graphicsPointer);
-            director->mPerformListCalcAnim->perform(0x2001, graphicsPointer);
-            director->mPerformListCalcAnim->perform(0x1, graphicsPointer);
-            director->mPerformListCalcAnim->perform(0x3001, graphicsPointer);
-            director->mPerformListCalcAnim->perform(0x2, graphicsPointer);*/
-            //director->mPerformListCalcAnim->perform(0x2, graphicsPointer);
-            
-            //director->mPerformListSilhouette->perform(0xffffffff, graphicsPointer);
             director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
             director->mPerformListPostDraw->perform(0xffffffff, graphicsPointer);
-            //
+            
 
 
             //}
@@ -567,27 +530,6 @@ namespace SMSCoop {
             director->mPerformListUnk2->perform(0x20f0000, graphicsPointer); // Unsure exactly what happens, but this works without drawing a black square to the screen
 
             director->mPerformListGX->perform(0xffffffff, graphicsPointer);
-
-            //
-            //int width = 640;
-            //int height = 448;
-            //
-            //GXSetTexCopySrc(0, 0, width, height);
-
-            ////u8 vfilter[7];
-            ////vfilter[0] = 0x15;
-            ////vfilter[1] = 0x0;
-            ////vfilter[2] = 0x0;
-            ////vfilter[3] = 0x16;
-            ////vfilter[4] = 0x0;
-            ////vfilter[5] = 0x0;
-            ////vfilter[6] = 0x15;
-            ////GXSetCopyFilter(0, 0, 1, vfilter);
-            //GXSetTexCopyDst(width / 2, height / 2, 4, 1);
-            //GXColor color;
-            //GXSetCopyClear(color, 0xffffff);
-            //GXCopyTex((void*)thisIsGenious.texture, 0);
-            //GXPixModeSync();
 
             // FIXME should be based on some conditions, check direct in MarDirector
             director->mPerformListSilhouette->testPerform(0xffffffff, graphicsPointer);
@@ -626,57 +568,6 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x80299d04, 0, 0, 0), processGXInvalidateTexAll);
 
 
- //   
- //   void TEfbCtrlTexture_perform_override(JDrama::TEfbCtrlTex* efbCtrlTex, u32 performFlags, JDrama::TGraphics* graphics) {
- //       //OSReport("Name %s %X %X\n", efbCtrlTex->mKeyName, performFlags, isRenderingOtherPerspectives);
- //       //OSReport("It could be time %X %X\n", efbCtrlTex->mKeyName[0], efbCtrlTex->mKeyName[1]);
-
- //       if(isRenderingOtherPerspectives) {
- //           if(efbCtrlTex->mKeyName[0] == 0x92) {
- //               //OSReport("It is time\n");
- //               
- //               if(performFlags & 0x8) {
- //                   int width = 640 / 2;
- //                   int height = 448;
- //                   
- //                   GXColor color;
- //                   GXSetCopyClear(color, 0xffffff);
- //                   GXSetColorUpdate(1);
- //                   GXSetAlphaUpdate(1);
- //                   GXSetZMode(1, 7, 1);
- //                   GXSetZCompLoc(1);
- //                   GXSetTexCopySrc(0, 0, width, height);
-
- //                   //u8 vfilter[7];
- //                   //vfilter[0] = 0x15;
- //                   //vfilter[1] = 0x0;
- //                   //vfilter[2] = 0x0;
- //                   //vfilter[3] = 0x16;
- //                   //vfilter[4] = 0x0;
- //                   //vfilter[5] = 0x0;
- //                   //vfilter[6] = 0x15;
- //                   //GXSetCopyFilter(0, 0, 1, vfilter);
- //                   GXSetTexCopyDst(width / 2, height / 2, 4, 1);
- //                   GXCopyTex((void*)thisIsGenious.texture, 0);
- //                   GXPixModeSync();
- //               }
- //           }
- //       }
-
- //       perform__Q26JDrama11TEfbCtrlTexFUlPQ26JDrama9TGraphics(efbCtrlTex, performFlags, graphics);
- //   }
-	//SMS_WRITE_32(SMS_PORT_REGION(0x803e1e70, 0, 0, 0), TEfbCtrlTexture_perform_override);
-
-    
- //   void TConductor_perform(TConductor* conductor, u32 perform_flags, JDrama::TGraphics* graphics) {
- //       OSReport("Update with flags %X \n", perform_flags);
- //     /*  if(perform_flags == 0x2 && !isRenderingOtherPerspectives) {
- //           return;
- //       }*/
- //       perform__10TConductorFUlPQ26JDrama9TGraphics(conductor, perform_flags, graphics);
- //   }
-	//SMS_WRITE_32(SMS_PORT_REGION(0x803ad978, 0, 0, 0), (u32)(&TConductor_perform));
-    
     void frameUpdate_override(void* self) {
         if(!isRenderingOtherPerspectives) {
             frameUpdate__6MActorFv(self);
@@ -732,29 +623,25 @@ namespace SMSCoop {
     // Description: 
     // thusly we need to handle this shit manually...
     void GXSetViewport_bathwater(f32 xOrig,f32 yOrig,f32 wd,f32 ht,f32 nearZ,f32 farZ) {
-        f32 xOffset = xOrig;
-        if(perspective == 1) {
-            xOffset = 320.0f;
-        }
-
-        GXSetViewport(xOffset, yOrig, 640.0f / 2.0f, ht, nearZ, farZ);
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        GXSetViewport(viewport.mX1, viewport.mY1, viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1, nearZ, farZ);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801ab0b4, 0, 0, 0), GXSetViewport_bathwater);
 
     // Description: Set source copy when copying bathwater from efb to screentexture
     // We copy the part of the texture that the active viewport is rendering
     void GXSetTexCopySrc_bathwater(u16 left, u16 top,u16 wd,u16 ht) {
-        u16 xOffset = left;
-        if(perspective == 1) {
-            xOffset = 320;
-        }
-
-        GXSetTexCopySrc(xOffset, top, wd, ht);
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        left = (u16)viewport.mX1;
+        top = (u16)viewport.mY1;
+        wd = (u16)(viewport.mX2 - viewport.mX1);
+        ht = (u16)(viewport.mY2 - viewport.mY1);
+        GXSetTexCopySrc(left, top, wd, ht);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801acd98, 0, 0, 0), GXSetTexCopySrc_bathwater);
 
     static unsigned int SMSGetGameRenderWidth_320() { 
-        if(!isSingleplayerLevel()) {
+        if(!isSingleplayerLevel() && !isHorizontal) {
 		    return 320;
         }
         return 640;
@@ -762,13 +649,23 @@ namespace SMSCoop {
     // Description: Sets render width for bathwater EFB
     SMS_PATCH_BL(SMS_PORT_REGION(0x801ac970, 0, 0, 0), SMSGetGameRenderWidth_320);
     
+    static unsigned int SMSGetGameRenderHeight() { 
+        if(!isSingleplayerLevel() && isHorizontal) {
+		    return 224;
+        }
+        return 448;
+    }
+    // Description: Sets render height for bathwater EFB
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801ac978, 0, 0, 0), SMSGetGameRenderHeight);
+
     // Description: Set screen area for mist and bathwater reflection to render
     void draw_mist(u32 x, u32 y, u32 wd, u32 ht, u32 unk) {
-        u32 xOffset = x;
-        if(perspective == 1) {
-            xOffset = 320;
-        }
-        draw_mist__FUsUsUsUsPv(xOffset, y, wd/2, ht, unk);
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        x = (u32)viewport.mX1;
+        y = (u32)viewport.mY1;
+        wd = (u32)(viewport.mX2 - viewport.mX1);
+        ht = (u32)(viewport.mY2 - viewport.mY1);
+        draw_mist__FUsUsUsUsPv(x, y, wd, ht, unk);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801ad6a8, 0, 0, 0), draw_mist);
 
@@ -779,17 +676,20 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x80110134, 0, 0, 0), SMSGetGameRenderWidth_320);
     SMS_PATCH_BL(SMS_PORT_REGION(0x801101e4, 0, 0, 0), SMSGetGameRenderWidth_320);
 
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8011010c, 0, 0, 0), SMSGetGameRenderHeight);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8011012c, 0, 0, 0), SMSGetGameRenderHeight);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x801101dc, 0, 0, 0), SMSGetGameRenderHeight);
+
     // Fix sun
     void GXPeekZ_override(u16 x, u16 y, u32* z) {
         if(isSingleplayerLevel()) {
             GXPeekZ(x, y, z);
             return;
         }
-        int offsetX = x / 2;
-        if(perspective == 1) {
-            offsetX += 320;
-        }
-        GXPeekZ(offsetX, y, z);
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        x = (u16)viewport.mX1;
+        y = (u16)viewport.mY1;
+        GXPeekZ(x, y, z);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8002eacc, 0, 0, 0), GXPeekZ_override);
 

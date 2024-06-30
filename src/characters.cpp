@@ -25,17 +25,36 @@ namespace SMSCoop {
 
     static void* sCharacterArcs[2];
     static char const* skins[2] = {"/data/mario.arc", "/data/mario.arc"};
+    static bool customAnimations[2] = {false, false};
+    static int customVoiceTypes[2] = {0, 0};
+    static int customMovesTypes[2] = {0, 0};
     void* arcBufMario;
 
-    void setSkinForPlayer(int id, char const* path) {
+    void setSkinForPlayer(int id, char const* path, bool customAnimation, int voiceType, int moveType) {
         if(id < 0 || id >= 2) {
             OSReport("Tried to set player skin outside max player bounds of 2\n");
         }
         skins[id] = path;
+        customAnimations[id] = customAnimation;
+        OSReport("Setting voice for player %X %X\n", id, voiceType);
+        customVoiceTypes[id] = voiceType;
+        customMovesTypes[id] = moveType;
     }
 	void unmountActiveMarioArchive() {
         JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
         archive->unmountFixed();
+    }
+
+    bool hasCustomAnimations(int id) {
+        return customAnimations[id];
+    }
+
+    int getVoiceType(int id) {
+        return customVoiceTypes[id];
+    }
+
+    int getMoveType(int id) {
+        return customMovesTypes[id];
     }
 
     void setActiveMarioArchive(int id) {

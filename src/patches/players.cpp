@@ -27,37 +27,6 @@ static u8* isThpInit = (u8*)0x803ec206;
 static u8* ThpState = (u8*)0x803ec204;
 
 namespace SMSCoop {
-	typedef struct EMario_t{
-		void* Type;			//0
-		void* u2;
-		int u3;
-		int u4;	
-		TVec3f position;	//10
-		int u5;
-		void* u6;			//20
-		TVec3f scale;
-		TVec3f direction;	//30
-		void* u7;
-		void* u8;			//40
-		THitActor** colarray;
-		u16 colcount;
-		u16 colarraysize;
-		int colsettings;
-		float bound1;			//50
-		float bound2;
-		float bound3;
-		float bound4;
-		float bound5;			//60
-		int colflags;
-		int u18;
-		int u19;
-		void* u20;			//70
-		void* u21[55];
-		TEnemyMario* enemymario;
-		u16 u22[7];
-	} EMario;
-
-
 	typedef struct {
 		TVec3f startPosition;
 		u16 marioAngle;
@@ -66,14 +35,15 @@ namespace SMSCoop {
 	} SpawnData;
 	static SpawnData spawnData[MARIO_COUNT];
 
+	typedef struct {
+		MActorAnmData* marioAnmData;
+		MActor* marioMActor;
+	} MarioExtModelData;
+	static MarioExtModelData modelData[MARIO_COUNT];
+
 	static u8 loadedMarios = 0;
 	static TMario* marios[MARIO_COUNT];
 	static bool isMarioCurrentlyLoadingViewObj = false;
-
-	static TMActorKeeper* testingkeeper;
-	static MActorAnmData* testAnimData = nullptr;
-	static MActor* testing = nullptr;
-	static J3DModel* testModel = nullptr;
 
 	void setActiveMario(int id) {
 		if(id > loadedMarios) return;
@@ -171,8 +141,10 @@ namespace SMSCoop {
 	//}
 	//SMS_PATCH_BL(SMS_PORT_REGION(0x8024673c, 0, 0, 0), try_make_sdl_model_for_mario);
 
+	// We need to disable goop texture hiding on animated mario...
+	// TODO: If generalized, then this should probably be improved.
 	void finalDrawInitialize_override(TMario* mario) {
-		if(getPlayerId(mario) != 1) {
+		if(!hasCustomAnimations(getPlayerId(mario))) {
 			mario->finalDrawInitialize();
 		}
 	}
@@ -238,51 +210,31 @@ namespace SMSCoop {
 					mario->mKeyCode = JDrama::TNameRef::calcKeyCode("Luigi");
 				}
 
-				if(i == 1) {
+				if(hasCustomAnimations(i)) {
 				
-					OSReport("Starting of Luigi animation load\n");
+					OSReport("Loading custom animations for player %X\n", i);
 				
-					TMario* mario = getMario(1);
-					setActiveMarioArchive(1);
-
-					//testingkeeper = new TMActorKeeper(nullptr, 1);
-					//testingkeeper->mModelFlags = 0x11300000;
-
-					//OSReport("Keeper %X\n", testingkeeper);
 					
-	//	//void* resource = JKRFileLoader::getGlbResource("/mario/default.bmd");
-	//	//if(resource != nullptr) {
-	//	//	J3DModelData* data = J3DModelLoaderDataBase::load(resource, 0);
-	//	//	testModel = new J3DModel(data, 0, 1);
-	//		//testing->setModel(model, 0);
-	////}
-					/*
-					void* resource = JKRFileLoader::getGlbResource("/mario/bmd/ma_mdl1.bmd");
-					J3DModelData* data = J3DModelLoaderDataBase::load(resource, 0);
-					SDLModelData* modelData = new SDLModelData();
-					__ct__12SDLModelDataFP12J3DModelData(modelData, data);
-					testModel = new J3DModel(data, 0, 1);*/
-					
-					testAnimData = new MActorAnmData();
-					init__13MActorAnmDataFPCcPPCc(testAnimData, "mario/btk");
-					/*testingkeeper->mAnmData = testAnimData;
-					testing = (MActor*)createAndRegister__13TMActorKeeperFP12SDLModelDataUl(testingkeeper, modelData, 0);*/
-					testing = new MActor(testAnimData);
-					testing->unlockDLIfNeed();
-					testing->initDL();
-					testing->setModel(mario->mModelData->mModel, 0);
+					modelData[i].marioAnmData = new MActorAnmData();
+					init__13MActorAnmDataFPCcPPCc(modelData[i].marioAnmData, "mario/btk");
+					MActor* marioMActor = new MActor(modelData[i].marioAnmData);
+					marioMActor->unlockDLIfNeed();
+					marioMActor->initDL();
+					marioMActor->setModel(mario->mModelData->mModel, 0);
+
+					modelData[i].marioMActor = marioMActor; 
 					//testing = testingkeeper->createAndRegister(modelData, 0);
 					//testing->setModel(testModel, 0x0);
 
-					OSReport("Exists %X\n", testing->checkAnmFileExist("animation", 4));
-					testing->setBtk("animation");
+					OSReport("Exists %X\n", marioMActor->checkAnmFileExist("animation", 4));
+					marioMActor->setBtk("animation");
 
 					f32 framerate = SMSGetAnmFrameRate();
-					J3DFrameCtrl* ctrl = testing->getFrameCtrl(4);
+					J3DFrameCtrl* ctrl = marioMActor->getFrameCtrl(4);
 					ctrl->mFrameRate = framerate;
 					ctrl->mAnimState = J3DFrameCtrl::LOOP;
 
-					testing->setLightType(3);
+					marioMActor->setLightType(3);
 
 					//SMS_MakeDLAndLock(testing->mModel);
 					//OSReport("Animation Id %X %X\n", testing->mBtkInfo, testing->mBtkInfo->mFrameCtrl);
@@ -303,7 +255,7 @@ namespace SMSCoop {
 					//testing->setBtk("animation");
 
 					//OSReport("HMMM %X %X \n", (u32)testAnimData, (u32)testing);
-					OSReport("Luigi animation load finished\n");
+					OSReport("Custom animation actor finished\n");
 				}
 
 				mario_viewObjPtrList->mViewObjList.push_back(mario);
@@ -322,6 +274,8 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a0734, 0, 0, 0), JDrama_TNameRefGen_load_Mario);
 
+	//SMS_WRITE_32(SMS_PORT_REGION(0x8025b8a0, 0, 0, 0), 0x60000000);
+
 	// Description: Override load method for mario to set correct gamepad for p2 and load correct model
 	void loadMario(TMario* mario, JSUMemoryInputStream *input) {
 
@@ -332,16 +286,29 @@ namespace SMSCoop {
 		*((u32*)&director->mGamePads[loadedMarios]->mState) &= ~0x80000; // Player is not talking
 
 		marios[loadedMarios] = mario;
-	
+
 		if(loadedMarios >= 1) {
 			TApplication* app = &gpApplication;
 			app->mGamePads[loadedMarios]->_E0 = 2;
 			mario->setGamePad(app->mGamePads[loadedMarios]);
 			mario->mController = app->mGamePads[loadedMarios];
+			
+		}
+
 		
+		int moveType = getMoveType(loadedMarios);
+
+		if(moveType == 1) {
 			mario->mJumpParams.mRotateJumpForceY.set( 70 * 1.2);
 			mario->mJumpParams.mSecJumpForce.set(52 * 1.2);
 			mario->mJumpParams.mUltraJumpForce.set(75 * 1.2);
+		}
+		else if(moveType == 2) {
+			mario->mRunParams.mMaxSpeed.set(32.0f * 2.0);
+			mario->mJumpParams.mJumpSpeedBrake.set(1.0);
+			mario->mSwimParams.mMoveSp.set(0.5);
+			mario->mHoverParams.mRotSp.set(200);
+			mario->mHoverParams.mBrake.set(0.99);
 		}
 
 		setActiveMarioArchive(loadedMarios);
@@ -378,6 +345,21 @@ namespace SMSCoop {
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80299a84, 0, 0, 0), TMarioGamePad_updateMeaning_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a6024, 0, 0, 0), TMarioGamePad_updateMeaning_override);
 	
+	void doRunning_override(TMario* mario) {
+		u8 playerId = getPlayerId(mario);
+		if(hasCustomAnimations(playerId)) {
+			mario->mBaseAcceleration *= 2.0;
+			mario->doRunning();
+			mario->mBaseAcceleration /= 2.0;
+		}
+		else {
+			mario->doRunning();
+		}
+	}
+	
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8025a5a4, 0, 0, 0), doRunning_override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8025aad8, 0, 0, 0), doRunning_override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8025b0a4, 0, 0, 0), doRunning_override);
 
 	int buttonsPressedWhileHeld[MARIO_COUNT];
 	int prevButtons[MARIO_COUNT];
@@ -440,8 +422,8 @@ namespace SMSCoop {
 	// Description: set correct camera and player before player update to make player move after correct camera
 	#define perform__6TMarioFUlPQ26JDrama9TGraphics         ((int (*)(...))0x8024D2A8)
 	void TMario_perform_coop(TMario* mario, u32 param_1, JDrama::TGraphics* param_2) {
+		u8 playerId = getPlayerId(mario);
 		if(param_1 & 0x1) {
-			u8 playerId = getPlayerId(mario);
             /*CPolarSubCamera* camera = getCameraById(playerId);
             camera->perform(0x14, param_2);*/
 			setActiveMario(playerId);
@@ -449,34 +431,20 @@ namespace SMSCoop {
 
 		}
 
-		
-		if(getPlayerId(mario) == 1) {
-			
+		if(hasCustomAnimations(playerId)) {
+			//OSReport("Updating mactor for %X\n", playerId);
+			MActor* marioMActor = modelData[playerId].marioMActor;
 			if(param_1 & 0x1) {
-				testing->frameUpdate();
+				marioMActor->frameUpdate();
 			}
 
 			if((param_1 & 0x200) == 0) {
 				perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
 			} else {
-				testing->entryIn();
+				marioMActor->entryIn();
 				perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
-				testing->entryOut();
+				marioMActor->entryOut();
 			}
-
-			if((param_1 & (0x200)) != 0) {
-				/*PSMTXCopy(*mario->getRootAnmMtx(), testing->mModel->mBaseMtx);
-				testing->perform(param_1, param_2);*/
-				/*if(param_1 & 200) {
-					testing->entry();
-				
-				}
-				testing->perform(param_1, param_2);*/
-				//OSReport("Testing %X\n", testing->isCurAnmAlreadyEnd(4));
-			} else {
-				//perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
-			}
-						//replace__14TScreenTextureFP12J3DModelDataPCc(*(u32**)0x8040e0bc, mario->mBodyModelData, "H_kagemario_dummy");
 		} else {
 			perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
 		}
@@ -521,7 +489,11 @@ namespace SMSCoop {
 			setActiveMario(i);
 			setCamera(i);
 			director->setMario();
-		
+
+			if(getVoiceType(i) >= 2) {
+				marios[i]->_388 = 1;
+			}
+
 			f32 offset = -75.0f + 150.0f * i;
 			volatile float angle = 2.0f * 3.1415 * marios[i]->mAngle.y / 65535.0f - 3.1415/2.0;
 			f32 offsetX = sin(angle) * offset;

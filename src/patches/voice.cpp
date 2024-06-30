@@ -1,8 +1,10 @@
 #include <sdk.h>
 #include <SMS/Player/Mario.hxx>
 #include <SMS/MSound/MSoundSESystem.hxx>
+#include <raw_fn.hxx>
 
 #include "players.hxx"
+#include "characters.hxx"
 
 //void JAISound_setPitch(JAISound* sound, f32 pitch, u32 interpolation, u8 slot) {
 //	sound->setPitch(pitch/2.0, interpolation, slot);
@@ -21,7 +23,8 @@ void SoundSESystem_startSoundActorInner(u32 soundId, JAISound** sound, JAIActor*
 	// 788F - climb ledge
 	// 780A and 0x78B9 is spin
 	u32 overridenSoundId = soundId;
-	if(playerIdMakingSound != 0) {
+	int voiceType = SMSCoop::getVoiceType(playerIdMakingSound);
+	if(voiceType == 1) {
 		if(soundId == 0x78ab || soundId == 0x7803 || soundId == 0x7807 || soundId == 0x78b1 || soundId == 0x7800 || soundId == 0x78b6 || soundId == 0x780A || soundId == 0x78B9) {
 			overridenSoundId = 0x7901;
 		}
@@ -50,6 +53,24 @@ void SoundSESystem_startSoundActorInner(u32 soundId, JAISound** sound, JAIActor*
 	}
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x80013dd4, 0, 0, 0), SoundSESystem_startSoundActorInner);
+
+//int TMario_getVoiceStatus_override(TMario* mario) {
+//	if(mario->onYoshi()) {
+//		return 1;
+//	}
+//	int playerId = SMSCoop::getPlayerId(mario);
+//	int voiceType = SMSCoop::getVoiceType(playerId);
+//	OSReport("Fucking hell %X\n", voiceType);
+//
+//	if(voiceType >= 2) {
+//		return 2;
+//	} else {
+//		int type = mario->_388;
+//		if(type == 2) return 6;
+//		return 0;
+//	}
+//}
+//SMS_WRITE_32(SMS_PORT_REGION(0x803af004, 0, 0, 0), (u32)(&TMario_getVoiceStatus_override));
 
 // I want to replace
 // 0x7901? (for all three jumps, sounds odd to me... Mario version: 0x78ab, 0x7803, 0x7800)
