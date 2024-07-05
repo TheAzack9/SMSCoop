@@ -18,6 +18,7 @@
 #include "camera.hxx"
 #include "splitscreen.hxx"
 #include "shine.hxx"
+#include "settings.hxx"
 
 #define MARIO_COUNT 2
 
@@ -25,6 +26,7 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 static u8* isThpInit = (u8*)0x803ec206;
 static u8* ThpState = (u8*)0x803ec204;
+extern SMSCoop::SplitScreenSetting gSplitScreenSetting;
 
 namespace SMSCoop {
 	typedef struct {
@@ -57,6 +59,10 @@ namespace SMSCoop {
 	int isSingleplayerLevel() {
         TApplication *app      = &gpApplication;
         TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+
+		if(gSplitScreenSetting.getInt() == SplitScreenSetting::NONE) {
+			return true;
+		}
 		
         if (app == nullptr || app->mContext != TApplication::CONTEXT_DIRECT_STAGE) {
             return true;
@@ -77,6 +83,12 @@ namespace SMSCoop {
         }
 
 		return false;
+	}
+
+	int isSingleCameraLevel() {
+		if(gSplitScreenSetting.getInt() == SplitScreenSetting::RETRO) return true;
+	
+		return isSingleplayerLevel();
 	}
 	
 	u8 getPlayerId(TMario* mario) {
@@ -323,7 +335,7 @@ namespace SMSCoop {
 	void TMarioGamePad_updateMeaning_override(TMarioGamePad* gamepad) {
 		TApplication* app = &gpApplication;
 		
-		if(!isSingleplayerLevel()) {
+		if(!isSingleplayerLevel() && !isSingleCameraLevel()) {
 			// A bit of a jank way to check if it is player 2 sadly
 			for(int i = 0; i < MARIO_COUNT; ++i) {
 				if(loadedMarios > i && gamepad == app->mGamePads[i]) {
@@ -427,7 +439,9 @@ namespace SMSCoop {
             /*CPolarSubCamera* camera = getCameraById(playerId);
             camera->perform(0x14, param_2);*/
 			setActiveMario(playerId);
-			setCamera(playerId);
+			if(!isSingleCameraLevel()) {
+				setCamera(playerId);
+			}
 
 		}
 
@@ -478,21 +492,32 @@ namespace SMSCoop {
 	// Override vtable
 	SMS_WRITE_32(SMS_PORT_REGION(0x803dd680, 0, 0, 0), (u32)(&TMario_perform_coop));
 
+
+	bool SMS_isMultiPlayerMap_override() {
+		return gSplitScreenSetting.getInt() == SplitScreenSetting::RETRO && !isSingleplayerLevel();
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80021138, 0, 0, 0), SMS_isMultiPlayerMap_override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80025438, 0, 0, 0), SMS_isMultiPlayerMap_override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80026010, 0, 0, 0), SMS_isMultiPlayerMap_override);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80039540, 0, 0, 0), SMS_isMultiPlayerMap_override);
 	
 	// Description: Sets initial fields on load for player and makes player active. 
 	// Note: This makes player spawn at level exits
 	// TODO: Fix wrong level exit animation
 	void SetMario(TMarDirector* director) {
 		bool bootState = TFlagManager::smInstance->getFlag(0x30006);
+		CPolarSubCamera* originalCamera = getCameraById(0);
 		for (int i = loadedMarios-1; i >= 0; i--) {
+			if(gSplitScreenSetting.getInt() == SplitScreenSetting::RETRO) {
+				TMario* mario = getMario(i);
+				const TVec3f* marioPos = &mario->mTranslation;
+				originalCamera->addMultiPlayer(marioPos, marioPos->y, marioPos->z);
+				OSReport("Adding split screen camera for player %X and cam %X\n", i, originalCamera);
+			}
 			TFlagManager::smInstance->setFlag(0x30006, bootState);
 			setActiveMario(i);
 			setCamera(i);
 			director->setMario();
-
-			if(getVoiceType(i) >= 2) {
-				marios[i]->_388 = 1;
-			}
 
 			f32 offset = -75.0f + 150.0f * i;
 			volatile float angle = 2.0f * 3.1415 * marios[i]->mAngle.y / 65535.0f - 3.1415/2.0;

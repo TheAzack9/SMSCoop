@@ -11,8 +11,9 @@
 #include "talking.hxx"
 #include "gui.hxx"
 #include "splitscreen.hxx"
+#include "settings.hxx"
 
-//extern SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting;
+extern SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting;
 namespace SMSCoop {
 	
 	// VTable for TShine
@@ -119,7 +120,7 @@ namespace SMSCoop {
 			TMario* cMario = getMario(i);
 			float dist = PSVECDistance((Vec*)&shine->mTranslation, (Vec*)&cMario->mTranslation);
 
-			if(dist > 3000/* && gShineGrabDistanceSetting.getBool()*/) {
+			if(dist > 3000 && gShineGrabDistanceSetting.getBool()) {
 				// TODO
 				if(balloonTimer[i] <= 0) {
 					startAppearBalloon__11TGCConsole2FUlb(getConsoleForPlayer(i), 93, false);

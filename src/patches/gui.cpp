@@ -156,7 +156,7 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c0570, 0, 0, 0), (u32)(&TPauseMenu2_perform_override));
 	
 	void TCardSave_perform_override(u32* cardSave, u32 performFlags, JDrama::TGraphics* graphics) {
-		if(isSingleplayerLevel()) {
+		if(isSingleCameraLevel()) {
 			perform__9TCardSaveFUlPQ26JDrama9TGraphics(cardSave, performFlags, graphics);
 			return;
 		}

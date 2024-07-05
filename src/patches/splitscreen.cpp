@@ -27,9 +27,12 @@
 #include "players.hxx"
 #include "talking.hxx"
 #include "yoshi.hxx"
+#include "settings.hxx"
 
 static u32* gpSilhouetteManager = (u32*)0x8040E090;
 static u32* gpQuestionManager = (u32*)0x8040e088;
+
+extern SMSCoop::SplitScreenSetting gSplitScreenSetting;
 
 // FIXME: Support horizontal split screen
 // FIXME: 3/4 perspectives?
@@ -52,7 +55,6 @@ namespace SMSCoop {
     TSunModel* g_sunModel;
     void* g_sunLensFlare;
     void* g_sunLensGlow;
-    bool isHorizontal = false;
 
     const static JDrama::TRect ORIGNAL_VIEWPORT = { 0, 0, 640, 448 };
     const static JDrama::TRect SCREEN_VIEWPORTS[4] = {
@@ -64,11 +66,15 @@ namespace SMSCoop {
 
     int perspective = 0;
     
+    bool isHorizontal() {
+        return gSplitScreenSetting.getInt() == SplitScreenSetting::HORIZONTAL;
+    }
+
     // Description: Set active viewport for player
     void setViewport(int player) {
         perspective = player;
 
-        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
         gViewport->mViewportRect = viewport;
         gViewport->perform(0x88, graphicsPointer);
         
@@ -81,15 +87,15 @@ namespace SMSCoop {
 
     int getActiveViewport() {
         // Can be removed once mario is p1 again
-        if(isSingleplayerLevel()) return 0;
+        if(isSingleCameraLevel()) return 0;
         return perspective;
     }
 
     void resetSplitScreen(TMarDirector* director) {
-        void* g_sun = nullptr;
-        TSunModel* g_sunModel = nullptr;
-        void* g_sunLensFlare = nullptr;
-        void* g_sunLensGlow = nullptr;
+        g_sun = nullptr;
+        g_sunModel = nullptr;
+        g_sunLensFlare = nullptr;
+        g_sunLensGlow = nullptr;
         g_objectsToUpdate = nullptr;
         //g_objectsToUpdate->Erase(g_objectsToUpdate->begin(), g_objectsToUpdate->end());
     }
@@ -155,8 +161,8 @@ namespace SMSCoop {
     // TODO: Rewrite this override EfbCtrlTex_perform instead and store a reference to the EfbCtrlTex that should
     // be changed to correct size. Checking the width is very hacky
     static void setTexCopySrcEfbTex(u16 left, u16 top, u16 wd, u16 ht) {
-        if(!isSingleplayerLevel() && wd == 640) {
-            const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        if(!isSingleCameraLevel() && wd == 640) {
+            const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
             left = viewport.mX1;
             top = viewport.mY1;
             wd = viewport.mX2 - viewport.mX1;
@@ -177,11 +183,11 @@ namespace SMSCoop {
     // Note: ScreenTexture is already half size for memory optimization? (Or perhaps blurring. Done by sunshine devs)
     static void TScreenTexture_load_ct_JUTTexture(JUTTexture* texture, int width, int height, GXTexFmt fmt) {
         
-        if(isSingleplayerLevel()) {
+        if(isSingleCameraLevel()) {
             __ct__10JUTTextureFii9_GXTexFmt(texture, width, height, fmt);
         } else {
             //thisIsGenious.texture = new JUTTexture(width / 2, height, fmt);
-            if(isHorizontal) {
+            if(isHorizontal()) {
                 __ct__10JUTTextureFii9_GXTexFmt(texture, width, height / 2, fmt);
             } else {
                 __ct__10JUTTextureFii9_GXTexFmt(texture, width / 2, height, fmt);
@@ -396,7 +402,7 @@ namespace SMSCoop {
         //    GXCopyTex(tempTexture, GX_FALSE);
         //}
         GXInvalidateTexAll(); 
-        if(!isSingleplayerLevel()) {
+        if(!isSingleCameraLevel()) {
             
 
             //GXTexObj texObj;
@@ -623,7 +629,7 @@ namespace SMSCoop {
     // Description: 
     // thusly we need to handle this shit manually...
     void GXSetViewport_bathwater(f32 xOrig,f32 yOrig,f32 wd,f32 ht,f32 nearZ,f32 farZ) {
-        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
         GXSetViewport(viewport.mX1, viewport.mY1, viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1, nearZ, farZ);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801ab0b4, 0, 0, 0), GXSetViewport_bathwater);
@@ -631,7 +637,7 @@ namespace SMSCoop {
     // Description: Set source copy when copying bathwater from efb to screentexture
     // We copy the part of the texture that the active viewport is rendering
     void GXSetTexCopySrc_bathwater(u16 left, u16 top,u16 wd,u16 ht) {
-        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
         left = (u16)viewport.mX1;
         top = (u16)viewport.mY1;
         wd = (u16)(viewport.mX2 - viewport.mX1);
@@ -641,7 +647,7 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x801acd98, 0, 0, 0), GXSetTexCopySrc_bathwater);
 
     static unsigned int SMSGetGameRenderWidth_320() { 
-        if(!isSingleplayerLevel() && !isHorizontal) {
+        if(!isSingleCameraLevel() && !isHorizontal()) {
 		    return 320;
         }
         return 640;
@@ -650,7 +656,7 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x801ac970, 0, 0, 0), SMSGetGameRenderWidth_320);
     
     static unsigned int SMSGetGameRenderHeight() { 
-        if(!isSingleplayerLevel() && isHorizontal) {
+        if(!isSingleCameraLevel() && isHorizontal()) {
 		    return 224;
         }
         return 448;
@@ -660,7 +666,7 @@ namespace SMSCoop {
 
     // Description: Set screen area for mist and bathwater reflection to render
     void draw_mist(u32 x, u32 y, u32 wd, u32 ht, u32 unk) {
-        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
         x = (u32)viewport.mX1;
         y = (u32)viewport.mY1;
         wd = (u32)(viewport.mX2 - viewport.mX1);
@@ -682,11 +688,11 @@ namespace SMSCoop {
 
     // Fix sun
     void GXPeekZ_override(u16 x, u16 y, u32* z) {
-        if(isSingleplayerLevel()) {
+        if(isSingleCameraLevel()) {
             GXPeekZ(x, y, z);
             return;
         }
-        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
+        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
         x = (u16)viewport.mX1;
         y = (u16)viewport.mY1;
         GXPeekZ(x, y, z);

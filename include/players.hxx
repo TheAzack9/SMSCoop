@@ -5,6 +5,7 @@
 
 namespace SMSCoop {
 	int isSingleplayerLevel();
+	int isSingleCameraLevel();
 	int getPlayerCount();
 	void setActiveMario(int id);
 	TMario* getMario(int id);

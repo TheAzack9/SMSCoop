@@ -54,23 +54,24 @@ void SoundSESystem_startSoundActorInner(u32 soundId, JAISound** sound, JAIActor*
 }
 SMS_PATCH_BL(SMS_PORT_REGION(0x80013dd4, 0, 0, 0), SoundSESystem_startSoundActorInner);
 
-//int TMario_getVoiceStatus_override(TMario* mario) {
-//	if(mario->onYoshi()) {
-//		return 1;
-//	}
-//	int playerId = SMSCoop::getPlayerId(mario);
-//	int voiceType = SMSCoop::getVoiceType(playerId);
-//	OSReport("Fucking hell %X\n", voiceType);
-//
-//	if(voiceType >= 2) {
-//		return 2;
-//	} else {
-//		int type = mario->_388;
-//		if(type == 2) return 6;
-//		return 0;
-//	}
-//}
+int TMario_getVoiceStatus_override(TMario* mario) {
+	if(mario->onYoshi()) {
+		return 1;
+	}
+	int playerId = SMSCoop::getPlayerId(mario);
+	int voiceType = SMSCoop::getVoiceType(playerId);
+
+	if(voiceType >= 2) {
+		return 2;
+	} else {
+		int type = mario->_388;
+		if(type == 2) return 6;
+		if(type == 1) return 2;
+		return 0;
+	}
+}
 //SMS_WRITE_32(SMS_PORT_REGION(0x803af004, 0, 0, 0), (u32)(&TMario_getVoiceStatus_override));
+SMS_WRITE_32(SMS_PORT_REGION(0x803dd740, 0, 0, 0), (u32)(&TMario_getVoiceStatus_override));
 
 // I want to replace
 // 0x7901? (for all three jumps, sounds odd to me... Mario version: 0x78ab, 0x7803, 0x7800)

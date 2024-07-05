@@ -29,6 +29,7 @@
 #include "subArea.hxx"
 #include "surfGesso.hxx"
 #include "yoshi.hxx"
+#include "settings.hxx"
 
 const u8 gSaveBnr[] = {
     0x09, 0x00, 0x00, 0x60, 0x00, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0xf3, 0x00, 0x00, 0x0c, 0x20,
@@ -423,8 +424,8 @@ const u8 gSaveIcon[] = {
 
 Settings::SettingsGroup gSettingsGroup(1, 0, Settings::Priority::GAME);
 
-//SMSCoop::SplitScreenSetting gSplitScreenSetting("Splitscreen");
-//SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting("Max shine grab distance");
+SMSCoop::SplitScreenSetting gSplitScreenSetting("Splitscreen");
+SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting("Max shine grab distance");
 
 static BetterSMS::ModuleInfo sModuleInfo{"Mario Sunshine Coop", 1, 0, &gSettingsGroup};
 
@@ -482,15 +483,15 @@ void TApplication_custom_proc(TApplication* app) {
 static pp::togglable_ppc_bl my_patch((u32)SMS_PORT_REGION(0x80005624, 0, 0, 0), (void*)TApplication_custom_proc, false);
 
 void setDebug(TApplication *application) {
-    //BetterSMS::setDebugMode(true);
+    BetterSMS::setDebugMode(true);
 }
 
 
 static void initModule() {
 
     OSReport("Initializing Coop Module...\n");
-    //gSettingsGroup.addSetting(&gSplitScreenSetting);
-    //gSettingsGroup.addSetting(&gShineGrabDistanceSetting);
+    gSettingsGroup.addSetting(&gSplitScreenSetting);
+    gSettingsGroup.addSetting(&gShineGrabDistanceSetting);
 
     {
         auto &saveInfo        = gSettingsGroup.getSaveInfo();
@@ -522,7 +523,7 @@ static void initModule() {
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateShine", SMSCoop::updateShineTimer);
     BetterSMS::Stage::registerUpdateCallback("SMSCoop_updateSurfGesso", SMSCoop::updateSurfGesso);
     BetterSMS::Stage::registerInitCallback("SMSCoop_resetShineLogic", SMSCoop::resetShineLogic);
-    SMSCoop::setSkinForPlayer(0, "/data/kagemario.arc", true, 0, 2);
+    SMSCoop::setSkinForPlayer(0, "/data/mario.arc", false, 0, 0);
     SMSCoop::setSkinForPlayer(1, "/data/kagemario.arc", true, 2, 2);
 
     // Display warning in game if memory not expanded

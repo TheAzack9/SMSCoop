@@ -17,8 +17,10 @@
 
 #include "players.hxx"
 #include "splitscreen.hxx"
+#include "settings.hxx"
 
 #define MARIO_COUNT 2
+extern SMSCoop::SplitScreenSetting gSplitScreenSetting;
 
 namespace SMSCoop {
 	CPolarSubCamera* cameras[MARIO_COUNT];
@@ -29,6 +31,11 @@ namespace SMSCoop {
 	static CPolarSubCamera** gpCameraCoop = (CPolarSubCamera**)0x8040d0a8;
 	static TCameraMarioData** gpCameraMario = (TCameraMarioData**)0x8040D0B0;
 	static CPolarSubCamera** gpCameraShake = (CPolarSubCamera**)0x8040D0B8;
+	
+	f32 MultiplayerCameraRho;
+	s16 MultiplayerCameraPhi;
+	s16 MultiplayerCameraTheta;
+
 
 	// Description: Sets the current global camera instance
 	void setCamera(int i) {
@@ -107,8 +114,36 @@ namespace SMSCoop {
 		setCamera(i);
 		((u32*)pCamera)[0x120 / 4] = (u32)app->mGamePads[i];
 		perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
+
+		// Custom controls for the retro camera
+		if(gSplitScreenSetting.getInt() == SplitScreenSetting::RETRO) {
+			for(int i = 0; i < getPlayerCount(); ++i) {
+
+				MultiplayerCameraPhi += gpApplication.mGamePads[i]->mCStick.mStickX * 40.0;
+				MultiplayerCameraRho += gpApplication.mGamePads[i]->mCStick.mStickY * 2.0;
+				MultiplayerCameraTheta += gpApplication.mGamePads[i]->mCStick.mStickY * 40.0;
+			}
+
+			
+			if (MultiplayerCameraTheta > 15000)
+				MultiplayerCameraTheta = 15000;
+			if (MultiplayerCameraTheta < 0)
+				MultiplayerCameraTheta = 0;
+
+		}
 	} 
 
+	// Custom override of multiplayer cam to actually make it semi usable
+	// Allows horizontal and vertical movement of the camera.
+	// Ported straight from original SM mod
+	void ClacMultiplayerCameraPos(TVec3f* center, TVec3f* out, float rho, u16 theta, u16 phi) {
+		/*switch (CameraMode){
+			case 2: rho *= 0.667f; break;
+			case 1: rho *= 1.5f; break;
+		}*/
+		CLBPolarToCross__FRC3VecP3Vecfss(center, out, rho * 0.8 + 10 * (f32)sqrtf(fabsf((f32)MultiplayerCameraTheta)), MultiplayerCameraTheta, MultiplayerCameraPhi);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80030c04, 0, 0, 0), ClacMultiplayerCameraPos);
 
 	// Description: Runs loadAfter for all cameras
 	// TODO: Cleanup
@@ -125,8 +160,10 @@ namespace SMSCoop {
 		CPolarSubCamera* originalCam = cameras[0];
 		for (int i = 1; i < getPlayerCount(); i++) {
 			cameras[i]->mProjectionAspect = originalCam->mProjectionAspect;
-			
+
 		}
+		
+
 	}
 
 
@@ -138,6 +175,9 @@ namespace SMSCoop {
 		cameraVtable[4] = (u32)(&loadCameraInfo);
 		cameraVtable[6] = (u32)(&loadAfterCameraOverhaul);
 		cameraVtable[8] = (u32)(&performCamerasOverhaul);
+
+		MultiplayerCameraPhi = 0;
+		MultiplayerCameraTheta = 0;
 
 		cameras[0] = camera;
 		__ct__15CPolarSubCameraFPCc(camera, unk);
@@ -153,6 +193,7 @@ namespace SMSCoop {
 			c2[i] = (u32)bob[2];
 		}
 		*gpCameraMario = c1[0];
+
 		// returning different cameras does nothing
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029d78c, 0, 0, 0), makeCameras);
