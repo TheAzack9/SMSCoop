@@ -44,7 +44,7 @@ void SoundSESystem_startSoundActorInner(u32 soundId, JAISound** sound, JAIActor*
 	}
 	if(soundId != 0x78FE) {
 		auto* newSound = MSoundSESystem::MSoundSE::startSoundActorInner(overridenSoundId, sound, origin, param_4, param_5);
-		if(newSound && soundId == overridenSoundId && playerIdMakingSound != 0) {
+		if(newSound && soundId == overridenSoundId && voiceType == 1) {
 			newSound->setPitch(0.891251, 3, 0); // Down two semitones
 			newSound->setTempoProportion(1.3, 5);
 			newSound->setVolume(1.0, 0, 0);
@@ -73,15 +73,16 @@ int TMario_getVoiceStatus_override(TMario* mario) {
 //SMS_WRITE_32(SMS_PORT_REGION(0x803af004, 0, 0, 0), (u32)(&TMario_getVoiceStatus_override));
 SMS_WRITE_32(SMS_PORT_REGION(0x803dd740, 0, 0, 0), (u32)(&TMario_getVoiceStatus_override));
 
+
 // I want to replace
 // 0x7901? (for all three jumps, sounds odd to me... Mario version: 0x78ab, 0x7803, 0x7800)
 // 
 //
-//JAISound* startMarioVoice_override(MSound* sound, u32 soundId, u16 unk, u8 unk2) {
-//	
-//	return sound->startMarioVoice(soundId, unk, unk2);
-//}
-//SMS_PATCH_BL(SMS_PORT_REGION(0x80012d38, 0, 0, 0), startMarioVoice_override);
+JAISound* startMarioVoice_override(MSound* sound, u32 soundId, u16 unk, u8 unk2) {
+	u8 voiceType = (u8)TMario_getVoiceStatus_override(gpMarioOriginal);
+	return sound->startMarioVoice(soundId, unk, voiceType);
+}
+SMS_PATCH_BL(SMS_PORT_REGION(0x80012d38, 0, 0, 0), startMarioVoice_override);
 //SMS_PATCH_BL(SMS_PORT_REGION(0x801e6da0, 0, 0, 0), startMarioVoice_override);
 //SMS_PATCH_BL(SMS_PORT_REGION(0x8026e90c, 0, 0, 0), startMarioVoice_override);
 //SMS_PATCH_BL(SMS_PORT_REGION(0x80285354, 0, 0, 0), startMarioVoice_override);

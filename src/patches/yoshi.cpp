@@ -39,10 +39,11 @@ namespace SMSCoop {
 	
 	void setWaterColorForMario(TMario* mario) {
 		TYoshi* yoshi = mario->mYoshi;
+		u8* cardType = (u8*)((u32)gpModelWaterManager + 0x5d5f);
 		if(isYoshiMounted(yoshi)) {
-			gpModelWaterManager->mWaterCardType = yoshi->mType;
+			*cardType = yoshi->mType;
 		} else {
-			gpModelWaterManager->mWaterCardType = 0;
+			*cardType = 0;
 		}
 	}
 

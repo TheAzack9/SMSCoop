@@ -125,11 +125,11 @@ namespace SMSCoop {
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x80246B2C, 0, 0, 0), getGlobalPlayerBoneAnim);
 
-    //static void getGlobalPlayerSoundAnim(char *dst, size_t size, const char *local_path,
-    //                                     const char *specifier) {
-    //    getGlobalOrLocalResFmt(dst, size, local_path, specifier, "/common/bas/ma_%s.bas");
-    //}
-    ////SMS_PATCH_BL(SMS_PORT_REGION(0x80246B60, 0, 0, 0), getGlobalPlayerSoundAnim);
+    static void getGlobalPlayerSoundAnim(char *dst, size_t size, const char *local_path,
+                                         const char *specifier) {
+        getGlobalOrLocalResFmt(dst, size, local_path, specifier, "/common/mario/bas/ma_%s.bas");
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80246B60, 0, 0, 0), getGlobalPlayerSoundAnim);
 
     static void getGlobalPlayerTobiKomiAnim(MActorAnmData *data, const char *local_path) {
         auto* first_file = JKRFileLoader::findFirstFile("/common/mario/04_tobikomi");
@@ -157,6 +157,15 @@ namespace SMSCoop {
         data->init("common/mario/01_waterboost", nullptr);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802721F0, 0, 0, 0), getGlobalPlayerWaterAnim);
+
+    static void *getGlobalPlayerTexPattern(const char *local_path) {
+        char global_path[60];
+        snprintf(global_path, 60, "%s%s", "/common", local_path);
+
+        return getGlobalOrLocalRes(local_path, global_path);
+    }
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80246be4, 0, 0, 0), getGlobalPlayerTexPattern);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80247528, 0, 0, 0), getGlobalPlayerTexPattern);
 
     static void *getGlobalPlayerWaterBoostMdl(const char *local_path) {
         return getGlobalOrLocalRes(local_path, "/common/mario/01_waterboost/01_waterboost.bmd");

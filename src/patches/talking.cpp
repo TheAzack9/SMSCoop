@@ -114,7 +114,7 @@ namespace SMSCoop {
 		//gpMSound->startMarioVoice(soundId);
 
 			
-		if(!someoneTalking) {
+		if(!someoneTalking && marioIdTalking != -1 && director->mTalkingNPC == nullptr) {
 			marioIdTalking = -1;
 			//OSReport("Stopping talking due to no one talking in update %X\n", (u32*)&handleTalking);
 			for(int i = 0; i < getPlayerCount(); ++i) {
@@ -144,13 +144,19 @@ namespace SMSCoop {
 			
 			movement_game__12TMarDirectorFv(marDirector);
 			if(nearestNpc != nullptr) {
+				//OSReport("Talking \n");
 				handleTalking(marDirector, nearestNpc, getActiveViewport());
 			}
 
 			marDirector->mGamePads[0]->mFrameMeaning = frameMeaning;
 			marDirector->mGamePads[0] = p1Gamepad;
 		} else {
+			THitActor* nearestNpc = (THitActor*)marDirector->findNearestTalkNPC();
 			movement_game__12TMarDirectorFv(marDirector);
+			if(nearestNpc != nullptr && marDirector->mTalkingNPC != nullptr) {
+				//OSReport("Talking \n");
+				handleTalking(marDirector, nearestNpc, getActiveViewport());
+			}
 
 		}
 	}
@@ -167,9 +173,14 @@ namespace SMSCoop {
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8024deb8, 0, 0, 0), changePlayerStatusToTalking);
 	
 	THitActor* findNearestTalkNPC(TMarDirector* marDirector) {
-		THitActor* nearestNpc = (THitActor*)marDirector->findNearestTalkNPC();
+		TBaseNPC* nearestNpc = (TBaseNPC*)marDirector->findNearestTalkNPC();
 
-		if(nearestNpc && PSVECDistance((Vec*)&nearestNpc->mTranslation, (Vec*)gpMarioPos) > 200.0f) {
+		//if(nearestNpc && PSVECDistance((Vec*)&nearestNpc->mTranslation, (Vec*)gpMarioPos) > 200.0f) {
+		//	return nullptr;
+		//}
+
+		if(nearestNpc && (nearestNpc->mStateFlags.asU32 & 0x2) != 0 && (nearestNpc->mObjectType & 0x1) != 0) {
+			//OSReport("invalidating talk npc\n");
 			return nullptr;
 		}
 
@@ -207,7 +218,7 @@ namespace SMSCoop {
 		THitActor *target = reinterpret_cast<THitActor *>(interp->mSlices[0].mValue);
 		int talkingPlayer = getClosestMarioId(&target->mTranslation);
 		setActiveMario(talkingPlayer);
-		
+
 		TApplication *app      = &gpApplication;
 		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 		TMarDirector_movement_game_override(director);
@@ -253,6 +264,17 @@ namespace SMSCoop {
 		setActiveMario(getActiveViewport());
 	}
 
+	
+	void warpFrontToMario(TSpcInterp *interp, u32 argc) {
+		THitActor *target = reinterpret_cast<THitActor *>(interp->mSlices[0].mValue);
+		int talkingPlayer = getClosestMarioId(&target->mTranslation);
+		setActiveMario(talkingPlayer);
+		
+		evWarpFrontToMario__FP32TSpcTypedInterp_1(interp, argc);
+
+		setActiveMario(getActiveViewport());
+	}
+
 	#define BIND_SYMBOL(binary, symbol, func)                                                          \
     (binary)->bindSystemDataToSymbol((symbol), reinterpret_cast<u32>(&(func)))
 	void bindNearActorsFunction(TSpcBinary* spcBinary) {
@@ -264,6 +286,12 @@ namespace SMSCoop {
 		BIND_SYMBOL(spcBinary, "__forceStartTalkExceptNpc", forceStartTalkExceptNpc);
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8020ea4c, 0, 0, 0), forceStartTalkExceptNpcBind);
+	
+	void evwarpFrontToMario(TSpcBinary* spcBinary) {
+		BIND_SYMBOL(spcBinary, "warpFrontToMario", warpFrontToMario);
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802897e0, 0, 0, 0), evwarpFrontToMario);
+	
 	
 	void forceStartTalkBind(TSpcBinary* spcBinary) {
 		BIND_SYMBOL(spcBinary, "__forceStartTalk", forceStartTalk);

@@ -6,6 +6,11 @@
 #include "players.hxx"
 #include "camera.hxx"
 #include "splitscreen.hxx"
+#include "settings.hxx"
+#include "pvp.hxx"
+
+extern SMSCoop::PlayerTypeSetting gPlayer1TypeSetting;
+extern SMSCoop::PlayerTypeSetting gPlayer2TypeSetting;
 
 namespace SMSCoop {
 	
@@ -30,19 +35,34 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029db48, 0, 0, 0), TGCConsole2_constructor);
 
+	const char* getSkinNameForPlayer(int i) {
+		int playerType = gPlayer1TypeSetting.getInt();
+		if(i == 1) playerType = gPlayer2TypeSetting.getInt();
+
+		if(isPvpLevel() && i == 0) return "mario";
+		if(isPvpLevel() && i == 1) return "luigi";
+		
+		if(playerType == PlayerTypeSetting::LUIGI) return "luigi";
+		if(playerType == PlayerTypeSetting::SHADOW_MARIO) return "kagemario";
+		return "mario";
+	}
+
 	// Load all instances of TGCConsole2
 	void TGCConsole2_load(TGCConsole2* tgcConsole2, JSUMemoryInputStream* param_1) {
 		char buffer[64];
 
+		bool isSingleCamera = isSingleplayerLevel();
+
 		for(int i = 0; i < 2; ++i) {
 			load__11TGCConsole2FR20JSUMemoryInputStream(consoles[i], param_1);
 
-			// TODO: Not hard coded
-			if(i == 1) {
+			if(isSingleCamera) {
+				const char* type = getSkinNameForPlayer(0);
+
 				{
 					J2DPicture* marioIcon =
 						reinterpret_cast<J2DPicture*>(consoles[i]->mMainScreen->search('m_ic'));
-					snprintf(buffer, 64, "/game_6/timg/%s_icon.bti", "luigi");
+					snprintf(buffer, 64, "/game_6/timg/%s_icon.bti", type);
 
 					auto* timg = reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(buffer));
 					if (timg)
@@ -53,11 +73,37 @@ namespace SMSCoop {
 					J2DPicture *marioName =
 						reinterpret_cast<J2DPicture *>(consoles[i]->mMainScreen->search('m_tx'));
 
-					snprintf(buffer, 64, "/game_6/timg/%s_text.bti", "luigi");
+					snprintf(buffer, 64, "/game_6/timg/%s_text.bti", type);
 
 					auto *timg = reinterpret_cast<ResTIMG *>(JKRFileLoader::getGlbResource(buffer));
 					if (timg)
 						marioName->changeTexture(timg, 0);
+				}
+			} else {
+				const char* type1 = getSkinNameForPlayer(0);
+				const char* type2 = getSkinNameForPlayer(1);
+			
+				{
+					J2DPicture* marioIcon =
+						reinterpret_cast<J2DPicture*>(consoles[i]->mMainScreen->search('m_ic'));
+					snprintf(buffer, 64, "/game_6/timg/%s_%s_icon.bti", type1, type2);
+
+					auto* timg = reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(buffer));
+					if (timg) {
+						marioIcon->changeTexture(timg, 0);
+					}
+				}
+
+				{
+					J2DPicture *marioName =
+						reinterpret_cast<J2DPicture *>(consoles[i]->mMainScreen->search('m_tx'));
+
+					snprintf(buffer, 64, "/game_6/timg/%s_%s_text.bti", type1, type2);
+
+					auto *timg = reinterpret_cast<ResTIMG *>(JKRFileLoader::getGlbResource(buffer));
+					if (timg) {
+						marioName->changeTexture(timg, 0);
+					}
 				}
 			}
 		}
@@ -69,6 +115,8 @@ namespace SMSCoop {
 	void TGCConsole2_loadAfter(TGCConsole2* tgcConsole2) {
 		for(int i = 0; i < 2; ++i) {
 			loadAfter__11TGCConsole2Fv(consoles[i]);
+			consoles[i]->mMainScreen->mRect.mX2 = 200;
+			consoles[i]->mMainScreen->mRect.mY2 = 200;
 		}
 	}
 	// Override vtable

@@ -8,7 +8,9 @@ namespace SMSCoop {
 	int isSingleCameraLevel();
 	int getPlayerCount();
 	void setActiveMario(int id);
+	bool isMarioSet();
 	TMario* getMario(int id);
 	u8 getPlayerId(TMario* mario);
 	int getClosestMarioId(TVec3f* position);
+	void setPlayerSkin(TMarDirector* director);
 }

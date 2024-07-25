@@ -11,12 +11,14 @@
 
 namespace SMSCoop {
 
-    //// Description: Check if object is within view of the camera or not
-    //int ViewFrustumClipCheck(double param_1, JDrama::TGraphics* param_2, TVec3f* param_3) {
-    //    int theResult = ViewFrustumClipCheck__FPQ26JDrama9TGraphicsP3Vecf(param_1, param_2, param_3);
-    //    if(theResult) 
-    //        return theResult;
-    //    //int theResult = 0;
+    // Description: Check if object is within view of the camera or not
+    //u64 ViewFrustumClipCheck(double param_1, JDrama::TGraphics* param_2, TVec3f* param_3) {
+    //    TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
+    //    if(director->mAreaID != 0x38 || director->mAreaID != 0x3b) {
+    //        return ViewFrustumClipCheck__FPQ26JDrama9TGraphicsP3Vecf(param_1, param_2, param_3);
+    //    }
+    //    
+    //    int theResult = 0;
     //    for(int i = 0; i < getPlayerCount(); ++i) {
     //        CPolarSubCamera* camera = getCameraById(i);
     //        PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)param_2 + 0xb4));

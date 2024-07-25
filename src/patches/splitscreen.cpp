@@ -22,17 +22,19 @@
 
 #include <Dolphin/MTX.h>
 #include <BetterSMS/libs/global_list.hxx>
+#include <BetterSMS/module.hxx>
 
 #include "camera.hxx"
 #include "players.hxx"
 #include "talking.hxx"
 #include "yoshi.hxx"
 #include "settings.hxx"
+#include "pvp.hxx"
 
 static u32* gpSilhouetteManager = (u32*)0x8040E090;
 static u32* gpQuestionManager = (u32*)0x8040e088;
 
-extern SMSCoop::SplitScreenSetting gSplitScreenSetting;
+extern SMSCoop::CameraTypeSetting gCameraTypeSetting;
 
 // FIXME: Support horizontal split screen
 // FIXME: 3/4 perspectives?
@@ -67,7 +69,7 @@ namespace SMSCoop {
     int perspective = 0;
     
     bool isHorizontal() {
-        return gSplitScreenSetting.getInt() == SplitScreenSetting::HORIZONTAL;
+        return gCameraTypeSetting.getInt() == CameraTypeSetting::HORIZONTAL;
     }
 
     // Description: Set active viewport for player
@@ -276,107 +278,244 @@ namespace SMSCoop {
     // 0x40000000 = = (TMario)
     // 0x20000000 = = (TMario)
     // 0x80000000 = = (TMario)
-    
     // TODO: Add option for setting far clip multiplier to reduce lag
     void testing(f32 fov, f32 aspect, f32 near, f32 far) {
+        if(isSingleCameraLevel()) {
+            far *= 2.0;
+        } else if(!BetterSMS::isGameEmulated()) {
+            far /= 2.0;
+        }
         SetViewFrustumClipCheckPerspective(fov, aspect, near, far);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x8021b0b0, 0, 0, 0), testing);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80034040, 0, 0, 0), testing);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8003d0ac, 0, 0, 0), testing);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8004a250, 0, 0, 0), testing);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8006931c, 0, 0, 0), testing);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8007fd90, 0, 0, 0), testing);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x80135bc4, 0, 0, 0), testing);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8020a2a4, 0, 0, 0), testing);
+
+    //int everyOther = 0;
+    //u32 remove_every_other_particle(void* baseEmitter) {
+    //    everyOther = (everyOther + 1) % 10;
+    //    if(everyOther != 0) {
+    //        return createParticle__14JPABaseEmitterFv(baseEmitter);
+    //    }
+    //    return 0;
+    //}
+    //SMS_PATCH_BL(SMS_PORT_REGION(0x80324278, 0, 0, 0), remove_every_other_particle);
+
 
     // Save a bit of memory (enough to load a full second model and not just a half)
     // Thanks to Mr. Brocoli for the idea
     void* gx_GXInit_alloc_override(u32 size, int flags, JKRHeap* heap) {
-        return JKRHeap::alloc(0x65000, flags, heap);
+        return JKRHeap::alloc(0x66000, flags, heap);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802a7488, 0, 0, 0), gx_GXInit_alloc_override);
     
     // Save a bit of memory (enough to load a full second model and not just a half)
     // Thanks to Mr. Brocoli for the idea
     void gx_GXInit_override(void* heap, u32 size) {
-        GXInit(heap, 0x65000);
+        GXInit(heap, 0x66000);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x802a7490, 0, 0, 0), gx_GXInit_override);
     
+
     // Partial implementation of clip actors recomputing
     // Seems to work well enough though.
-    void recalculateClipActors(JGadget::TList<TLiveActor *>& list, int type = 0) {
-        
+    void recalculateClipActors(JGadget::TList<TLiveActor *>& list, int type = 0, bool onlyDraw = false) {
+        //*(u32*)(0x800132fc) = 0x38600000;
+        //*(u32*)(0x800180e0) = 0x7c0803a6;
+        //*(u32*)(0x800180e4) = 0x4e800020;
+
         auto it2 = list.begin();
         auto end2 = list.end();
         while(it2 != end2) {
             JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
             if(type == 1) { // Alone actors (whatever that means)
-                obj2->mPerformFlags |= 0x4;
+                //obj2->mPerformFlags |= 0x4;
+                    OSReport("There are alone actors? %s\n", obj2->mKeyName);
             } else if (type == 2) { // TLiveManager
 
 
                 TLiveManager* manager = reinterpret_cast<TLiveManager*>(*it2);
-                //manager->perform(0x2, graphicsPointer);
-                /*CPolarSubCamera* camera = getCameraById(0);
-                PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
-                setCamera(0);*/
-                manager->setFlagOutOfCube();
-                //PSMTXIdentity(*(Mtx*)((u32)graphicsPointer + 0xb4));
-                u32 functionAddress = *(u32*)((*(u32*)manager) + 0x48);
-                // Cheeky way of detecting if EnemyManager instance by using unused restoreDrawBuffer as an anchor
-                if(functionAddress != 0x80006bc4) {
-                    u32 functionAddress = *(u32*)((*(u32*)manager) + 0x30);
-                    ((int (*)(...))functionAddress)(manager, graphicsPointer);
-                } else {
-                    u32 functionAddress = *(u32*)((*(u32*)manager) + 0x44);
-                    ((int (*)(...))functionAddress)(manager, graphicsPointer);
-                }
+                    //OSReport("There are alone actors? %s %X\n", manager->mKeyName, manager->mKeyCode);
 
-
-
-                //OSReport("Function ptr %X\n", *(u32*)((*(u32*)manager) + 0x30));
-                //((int (*)(...))((*(u32*)(*(u32*)manager) + 0x30)))(graphicsPointer);
-
-                //manager->clipActors(graphicsPointer); // FIXME: Unsure why this has a lot lower clip range than in primary render, problem is that i am calling the function directly, should use vt to look up function...
-                //manager->clipActorsAux(graphicsPointer, 1000.0f, manager->_3c);
-                //setCamera(0);
-             /*   camera = getCameraById(0);
-                PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));*/
-                /*SetViewFrustumClipCheckPerspective(camera->mProjectionFovy, camera->mProjectionAspect, 10.0f, 100000.0);
-                */
-                u32 objCount = manager->_14;
-                u32 id = 0;
-                while(id < objCount) {
-                    TLiveActor* actor = *reinterpret_cast<TLiveActor**>(manager->_18 + id);
-
-                    if(actor->mStateFlags.asU32 & 0x1 || actor->mObjectID == 0x4000003b || actor->mActorData == nullptr) {
-                        id++;
-                        continue;
+                if(manager->mKeyCode != 0x6C38 && manager->mKeyCode != 0X3048) {
+                    //manager->perform(0x2, graphicsPointer);
+                    /*CPolarSubCamera* camera = getCameraById(0);
+                    PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
+                    setCamera(0);*/
+                    manager->setFlagOutOfCube();
+                    //PSMTXIdentity(*(Mtx*)((u32)graphicsPointer + 0xb4));
+                    u32 functionAddress = *(u32*)((*(u32*)manager) + 0x48);
+                    // Cheeky way of detecting if EnemyManager instance by using unused restoreDrawBuffer as an anchor
+                    if(functionAddress != 0x80006bc4) {
+                        u32 functionAddress = *(u32*)((*(u32*)manager) + 0x30);
+                        ((int (*)(...))functionAddress)(manager, graphicsPointer);
+                    } else {
+                        u32 functionAddress = *(u32*)((*(u32*)manager) + 0x44);
+                        ((int (*)(...))functionAddress)(manager, graphicsPointer);
                     }
-                    //OSReport("Testing type %s\n", actor->mKeyName);
 
-                    J3DModel* model = (J3DModel*)getModel__10TLiveActorCFv(actor);
-                    actor->perform(0x42, graphicsPointer);
 
-                    //char unknown = *(char*)((*(u32*)((u32)model + 0x84)) + 0x30);
-                    ////OSReport("Testing %X, %X, %X, %X\n", (u32)model, unknown, model->_74, (u32)&model);
-                    //actor->calcRootMatrix();
-                    //actor->mActorData->calc();
-                    //if(model != nullptr) {
-                    //    if((actor->mStateFlags.asU32 & 0x204) == 0) {
-                    //        if(unknown == 0) {
-                    //            //model->viewCalc();
-                    //            SMS_ShowAllShapePacket__FP8J3DModel(model);
-                    //        }
-                    //    } else {
-                    //        if(unknown != 0) {
-                    //            SMS_HideAllShapePacket__FP8J3DModel(model);
-                    //        }
-                    //    }
-                    //}
-                    id++;
+
+                    //OSReport("Function ptr %X\n", *(u32*)((*(u32*)manager) + 0x30));
+                    //((int (*)(...))((*(u32*)(*(u32*)manager) + 0x30)))(graphicsPointer);
+
+                    //manager->clipActors(graphicsPointer); // FIXME: Unsure why this has a lot lower clip range than in primary render, problem is that i am calling the function directly, should use vt to look up function...
+                    //manager->clipActorsAux(graphicsPointer, 1000.0f, manager->_3c);
+                    //setCamera(0);
+                 /*   camera = getCameraById(0);
+                    PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));*/
+                    /*SetViewFrustumClipCheckPerspective(camera->mProjectionFovy, camera->mProjectionAspect, 10.0f, 100000.0);
+                    */
+
+                    // Best way i could find to fix 
+
+                    //OSReport("virtual table ref %X\n", *(u32*)manager);
+
+                    u32 objCount = manager->_14;
+                    u32 id = 0;
+                    while(id < objCount) {
+                        TLiveActor* actor = *reinterpret_cast<TLiveActor**>(manager->_18 + id);
+                        if(actor->mStateFlags.asU32 & 0x1 || actor->mObjectID == 0x4000003b) {
+                            id++;
+                            continue;
+                        }
+
+                        bool isMapObjBase = false;
+                        // Using vtable to check if TMapObjBase by using un overridden function changeObjSRT
+                        if( *(u32*)((*(u32*)actor) + 0x108) == 0x801b12f8) {
+                            isMapObjBase = true;
+                        }
+
+                        bool isBaseNpc = false;
+                        if( *(u32*)((*(u32*)actor) + 0xf0) == 0x80207604) {
+                            isBaseNpc = true;
+                        }
+
+                        if(isMapObjBase) {
+                            TMapObjBase* mapObjBase = (TMapObjBase*)actor;
+                            //mapObjBase->calc();
+
+                            // We have to re-enable the models for the active perspective
+                            if(mapObjBase->mActorData != 0) {
+                                J3DModel* model = actor->getModel();
+                                bool isVisible = *(bool*)(*(u32*)((u32) model + 0x84) + 0x30);
+                                if((mapObjBase->mStateFlags.asU32 & 0x204) == 0) {
+                                    if(!isVisible) {
+                                        SMS_ShowAllShapePacket__FP8J3DModel(model);
+                                    }
+                                } else {
+                                    if(isVisible) {
+                                        SMS_HideAllShapePacket__FP8J3DModel(model);
+                                    }
+                                }
+                            }
+                            
+                            if(!onlyDraw) {
+                                mapObjBase->perform(0x2, graphicsPointer);
+                            } else {
+                                mapObjBase->performOnlyDraw(0x2, graphicsPointer);
+                            }
+                        } else if(isBaseNpc) {
+                            TBaseNPC* baseNpc = (TBaseNPC*)actor;
+
+                            //baseNpc->updateSquareToMario();
+                            //u32 prevVal = *(u32*)((u32)baseNpc + 0x170);
+                            //*(u32*)((u32)baseNpc + 0x170) &= ~0x4000;
+                            
+                            //*(u32*)(0x802069cc) = 0x60000000;
+                            /*void *addr = __builtin_extract_return_addr (__builtin_return_address (0));
+                            OSReport("frick %X %X\n", *(u32*)(0x80217f1c), addr);*/
+                            //*(u32*)(0x8003a008) = 0x481ddddd;
+                            //baseNpc->mStateFlags.asU32 &= ~0x7;
+                            //baseNpc->perform(0x2, graphicsPointer);
+                            //*(u32*)(0x80217f1c) = 0x4e800021;
+                            //*(u32*)((u32)baseNpc + 0x170) = prevVal;
+                            
+                            //if((baseNpc->mStateFlags.asU32 & 0x1000006 ) == 0) {
+                                //emitParticle___8TBaseNPCFv(baseNpc);
+                            //}
+                            
+                            baseNpc->updateSquareToMario();
+                            u32* npcInbetween = (u32*)((u32)baseNpc + 0x18c);
+                            u32* npcParts = (u32*)((u32)baseNpc + 0x168);
+                            if(*npcInbetween != 0) {
+                                if((baseNpc->mStateFlags.asU32 & 0x7) == 0) {
+                                    if((baseNpc->mStateFlags.asU32 & 0x1000000) == 0 && 2 < baseNpc->mSpineBase->mNerveTimer) { 
+                                        isNerveMaybeDontCalcAnim0__8TBaseNPCCFv(baseNpc);
+                                        isNerveMaybeDontCalcAnim1__8TBaseNPCCFv(baseNpc);
+                                        execMotionBlend___8TBaseNPCFv(baseNpc);
+                                    }
+                            
+                                } else {
+                                    execMotionBlend___8TBaseNPCFv(baseNpc);
+                                }
+                            }
+                            u32* multiMtxEffect = (u32*)((u32)baseNpc + 0x160);
+                            if(*multiMtxEffect != 0) {
+                                // update monte hula things
+                                setUserArea__15TMultiMtxEffectFv(*multiMtxEffect);
+                            }
+
+                            baseNpc->performOnlyDraw(0x2, graphicsPointer);
+
+                            if(*npcParts != 0x0) {
+                                partsPerform__9TNpcPartsFUlPQ26JDrama9TGraphics(*npcParts, 0x2, graphicsPointer);
+                            }
+                            //*(u32*)(0x802069cc) = 0x4e800021;
+
+                            //
+                        } else {
+                            if(!onlyDraw) {
+                                actor->perform(0x2, graphicsPointer);
+                            } else {
+                                actor->performOnlyDraw(0x2, graphicsPointer);
+                            }
+                        }
+
+                        //OSReport("Testing type %s %X\n", actor->mKeyName, actor->mObjectID);
+                        //OSReport("Testing type %s\n", actor->mKeyName);
+
+                        //J3DModel* model = (J3DModel*)getModel__10TLiveActorCFv(actor);
+                        //actor->performOnlyDraw(0x2, graphicsPointer);
+                        //actor->perform(0x2, graphicsPointer);
+
+                        //char unknown = *(char*)((*(u32*)((u32)model + 0x84)) + 0x30);
+                        ////OSReport("Testing %X, %X, %X, %X\n", (u32)model, unknown, model->_74, (u32)&model);
+                        //actor->calcRootMatrix();
+                        //actor->mActorData->calc();
+                        //if(model != nullptr) {
+                        //    if((actor->mStateFlags.asU32 & 0x204) == 0) {
+                        //        if(unknown == 0) {
+                        //            //model->viewCalc();
+                        //            SMS_ShowAllShapePacket__FP8J3DModel(model);
+                        //        }
+                        //    } else {
+                        //        if(unknown != 0) {
+                        //            SMS_HideAllShapePacket__FP8J3DModel(model);
+                        //        }
+                        //    }
+                        //}
+                        id++;
+                    }
                 }
-
                 /*manager->clipActorsAux(graphicsPointer, 0.1, 100.0f);*/
-            }
+            } else {
+                    OSReport("What are you?? %s\n", obj2->mKeyName);
+                    
+                }
             //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
             it2++;
         }
+        //*(u32*)(0x800132fc) = 0x38600001;
+        //*(u32*)(0x800180dc) = 0x90010004;
+        //*(u32*)(0x800180e0) = 0x9421ffa8;
+        //*(u32*)(0x800180e4) = 0xbf21003c;
+
     }
 
     bool isRenderingOtherPerspectives = false;
@@ -401,6 +540,7 @@ namespace SMSCoop {
         //    //GXCopyDisp(tempTexture, GX_FALSE);
         //    GXCopyTex(tempTexture, GX_FALSE);
         //}
+
         GXInvalidateTexAll(); 
         if(!isSingleCameraLevel()) {
             
@@ -473,6 +613,13 @@ namespace SMSCoop {
                 gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
                 gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
                 gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
+                /*gpCubeMirror->mCurrentCube = gpCubeMirror->getInCubeNo(marioPos);
+                gpCubeCamera->mCurrentCube = gpCubeCamera->getInCubeNo(marioPos);
+                gpCubeWire->mCurrentCube = gpCubeWire->getInCubeNo(marioPos);
+                gpCubeStream->mCurrentCube = gpCubeStream->getInCubeNo(marioPos);
+                gpCubeShadow->mCurrentCube = gpCubeShadow->getInCubeNo(marioPos);*/
+                //gpCubeSoundChange->mCurrentCube = gpCubeSoundChange->getInCubeNo(marioPos);
+                //gpCubeSoundEffect->mCurrentCube = gpCubeSoundEffect->getInCubeNo(marioPos);
             // Simulate quarter frames lmao.
             // Fixes Cube streams
             for(int i = 0; i < 4; ++i) {
@@ -482,7 +629,6 @@ namespace SMSCoop {
 
             //OSReport("\n\n\n\n");
         
-            
             auto it = director->mPerformListCalcAnim->begin();
             auto end = director->mPerformListCalcAnim->end();
             while(it != end) {
@@ -512,10 +658,19 @@ namespace SMSCoop {
                 //}
                 if(*(u32*)viewObj == 0x803ad958) { // TConductor
                     TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
-                    recalculateClipActors(conductor->_10, 2);
+                    recalculateClipActors(conductor->_10, 2, false);
+
+                    //u32 testList = *(u32*)((u32)conductor + 0x1e);
+                    //JGadget::TList<TLiveActor *>* enemyManagerList = *(JGadget::TList<TLiveActor *>**)(testList + 0x2);
+                    //recalculateClipActors(*enemyManagerList, 1);
                 }
                 it = it->mNext;
             }
+
+            if(isPvpLevel()) {
+                drawPvp();
+            }
+
             director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);
             director->mPerformListPostDraw->perform(0xffffffff, graphicsPointer);
             
@@ -550,6 +705,32 @@ namespace SMSCoop {
             setActiveMario(1);
             setViewport(1);
             setWaterColorForMario(gpMarioOriginal);
+            if(director->mCurState == TMarDirector::STATE_FREEZE || director->mCurState == TMarDirector::STATE_PAUSE_MENU) {
+            
+                // Update clipActors
+                camera = getCameraById(1);
+                camera->perform(0x14, graphicsPointer);
+                currentMario = getMario(1);
+                marioPos.x = currentMario->mTranslation.x;
+                marioPos.y = currentMario->mTranslation.y + 75.0;
+                marioPos.z = currentMario->mTranslation.z;
+                gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
+                gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
+                gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
+                gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
+                it = director->mPerformListCalcAnim->begin();
+                while(it != end) {
+                    JDrama::TViewObj* viewObj = reinterpret_cast<JDrama::TViewObj*>(it->mData);
+                    if(*(u32*)viewObj == 0x803ad958) { // TConductor
+                        TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
+                        recalculateClipActors(conductor->_10, 2, true);
+                    }
+                    it = it->mNext;
+                }
+
+            
+            }
+
             //*(JUTTexture**)(*(u32*)(0x8040e0bc) + 0x10) = screenTextures[0];
         }
         
@@ -629,19 +810,25 @@ namespace SMSCoop {
     // Description: 
     // thusly we need to handle this shit manually...
     void GXSetViewport_bathwater(f32 xOrig,f32 yOrig,f32 wd,f32 ht,f32 nearZ,f32 farZ) {
-        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
-        GXSetViewport(viewport.mX1, viewport.mY1, viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1, nearZ, farZ);
+        if(!isSingleCameraLevel()) {
+            const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
+            GXSetViewport(viewport.mX1, viewport.mY1, viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1, nearZ, farZ);
+        } else {
+            GXSetViewport(xOrig, yOrig, wd, ht, nearZ, farZ);
+        }
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801ab0b4, 0, 0, 0), GXSetViewport_bathwater);
 
     // Description: Set source copy when copying bathwater from efb to screentexture
     // We copy the part of the texture that the active viewport is rendering
     void GXSetTexCopySrc_bathwater(u16 left, u16 top,u16 wd,u16 ht) {
-        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
-        left = (u16)viewport.mX1;
-        top = (u16)viewport.mY1;
-        wd = (u16)(viewport.mX2 - viewport.mX1);
-        ht = (u16)(viewport.mY2 - viewport.mY1);
+        if(!isSingleCameraLevel()) {
+            const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
+            left = (u16)viewport.mX1;
+            top = (u16)viewport.mY1;
+            wd = (u16)(viewport.mX2 - viewport.mX1);
+            ht = (u16)(viewport.mY2 - viewport.mY1);
+        }
         GXSetTexCopySrc(left, top, wd, ht);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801acd98, 0, 0, 0), GXSetTexCopySrc_bathwater);
@@ -666,11 +853,13 @@ namespace SMSCoop {
 
     // Description: Set screen area for mist and bathwater reflection to render
     void draw_mist(u32 x, u32 y, u32 wd, u32 ht, u32 unk) {
-        const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
-        x = (u32)viewport.mX1;
-        y = (u32)viewport.mY1;
-        wd = (u32)(viewport.mX2 - viewport.mX1);
-        ht = (u32)(viewport.mY2 - viewport.mY1);
+        if(!isSingleCameraLevel()) {
+            const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
+            x = (u32)viewport.mX1;
+            y = (u32)viewport.mY1;
+            wd = (u32)(viewport.mX2 - viewport.mX1);
+            ht = (u32)(viewport.mY2 - viewport.mY1);
+        }
         draw_mist__FUsUsUsUsPv(x, y, wd, ht, unk);
     }
     SMS_PATCH_BL(SMS_PORT_REGION(0x801ad6a8, 0, 0, 0), draw_mist);
@@ -708,8 +897,8 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803ad180, 0, 0, 0), TSunMgr_perform_override);
     void TSunModel_perform_override(TSunModel* sunModel, u32 performFlags, JDrama::TGraphics* graphics) {
         g_sunModel = sunModel;
-        calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
-        g_sunModel->getZBufValue();
+        /*calcDispRatioAndScreenPos___9TSunModelFv(g_sunModel);
+        g_sunModel->getZBufValue();*/
         perform__9TSunModelFUlPQ26JDrama9TGraphics(sunModel, performFlags, graphics);
     }
 	SMS_WRITE_32(SMS_PORT_REGION(0x803ad1c0, 0, 0, 0), TSunModel_perform_override);

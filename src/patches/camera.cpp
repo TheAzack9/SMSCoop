@@ -18,9 +18,10 @@
 #include "players.hxx"
 #include "splitscreen.hxx"
 #include "settings.hxx"
+#include "pvp.hxx"
 
 #define MARIO_COUNT 2
-extern SMSCoop::SplitScreenSetting gSplitScreenSetting;
+extern SMSCoop::CameraTypeSetting gCameraTypeSetting;
 
 namespace SMSCoop {
 	CPolarSubCamera* cameras[MARIO_COUNT];
@@ -32,9 +33,9 @@ namespace SMSCoop {
 	static TCameraMarioData** gpCameraMario = (TCameraMarioData**)0x8040D0B0;
 	static CPolarSubCamera** gpCameraShake = (CPolarSubCamera**)0x8040D0B8;
 	
-	f32 MultiplayerCameraRho;
-	s16 MultiplayerCameraPhi;
-	s16 MultiplayerCameraTheta;
+	f32 MultiplayerCameraRho = 0.0f;
+	s16 MultiplayerCameraPhi = 0;
+	s16 MultiplayerCameraTheta = 0;
 
 
 	// Description: Sets the current global camera instance
@@ -116,7 +117,7 @@ namespace SMSCoop {
 		perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
 
 		// Custom controls for the retro camera
-		if(gSplitScreenSetting.getInt() == SplitScreenSetting::RETRO) {
+		if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isPvpLevel()) {
 			for(int i = 0; i < getPlayerCount(); ++i) {
 
 				MultiplayerCameraPhi += gpApplication.mGamePads[i]->mCStick.mStickX * 40.0;
@@ -136,14 +137,14 @@ namespace SMSCoop {
 	// Custom override of multiplayer cam to actually make it semi usable
 	// Allows horizontal and vertical movement of the camera.
 	// Ported straight from original SM mod
-	void ClacMultiplayerCameraPos(TVec3f* center, TVec3f* out, float rho, u16 theta, u16 phi) {
+	void CalcMultiplayerCameraPos(TVec3f* center, TVec3f* out, float rho, u16 theta, u16 phi) {
 		/*switch (CameraMode){
 			case 2: rho *= 0.667f; break;
 			case 1: rho *= 1.5f; break;
 		}*/
 		CLBPolarToCross__FRC3VecP3Vecfss(center, out, rho * 0.8 + 10 * (f32)sqrtf(fabsf((f32)MultiplayerCameraTheta)), MultiplayerCameraTheta, MultiplayerCameraPhi);
 	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x80030c04, 0, 0, 0), ClacMultiplayerCameraPos);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80030c04, 0, 0, 0), CalcMultiplayerCameraPos);
 
 	// Description: Runs loadAfter for all cameras
 	// TODO: Cleanup
@@ -158,12 +159,15 @@ namespace SMSCoop {
 		*gpCameraShake = (CPolarSubCamera*)c2[0];
 	
 		CPolarSubCamera* originalCam = cameras[0];
-		for (int i = 1; i < getPlayerCount(); i++) {
-			cameras[i]->mProjectionAspect = originalCam->mProjectionAspect;
+		f32 originalAspect = originalCam->mProjectionAspect;
+		for (int i = 0; i < getPlayerCount(); i++) {
+			cameras[i]->mProjectionAspect = originalAspect;
+			//cameras[i]->mProjectionFovy *= 1.8f;
+			if(!isSingleCameraLevel() && gCameraTypeSetting.getInt() == CameraTypeSetting::HORIZONTAL) {
+				cameras[i]->mProjectionAspect = 2.666666666f;
+			}
 
 		}
-		
-
 	}
 
 
@@ -175,7 +179,8 @@ namespace SMSCoop {
 		cameraVtable[4] = (u32)(&loadCameraInfo);
 		cameraVtable[6] = (u32)(&loadAfterCameraOverhaul);
 		cameraVtable[8] = (u32)(&performCamerasOverhaul);
-
+		
+		MultiplayerCameraRho = 0.0f;
 		MultiplayerCameraPhi = 0;
 		MultiplayerCameraTheta = 0;
 
@@ -280,25 +285,39 @@ namespace SMSCoop {
 				distance = newDist;
 			}
 		}
-
 		*dest = distance;
 
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80305418, 0, 0, 0), calculateSoundDistance);
 
-
+	//void calculateInCubeRation(void* gpCubeSoundChange, Vec* marioPos, )
 	
 	// Description: Goes through all audio listener and finds the closest one to the audio source
 	int SMS_GetMonteVillageAreaInMario_camera() {
-		int result = SMS_GetMonteVillageAreaInMario__Fv();
-		if(result == 4 || result == 1) return result;
+		int result = 3;
+		return result; // This probably messes up music or something in pianta, but it seems to fix sounds
+		//for(int i = getPlayerCount() - 1; i >= 0; --i) {
+		//	TMario* mario = getMario(i);
+		//	gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo((const Vec&)mario->mTranslation);
+		//	setCamera(i);
+		//	
+		//	int newResult = SMS_GetMonteVillageAreaInMario__Fv();
+		//	if(newResult != 3) {
+		//		result = newResult;
+		//	}
+		//}
+		//return result;
+		//if(result == 4 || result == 1) return result;
 
-		u32 isInCube = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
-		if(isInCube == 1) return 0;
-		if(isInCube == 0) return 2;
-		return 3;
+		//u32 isInCube = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
+		//if(isInCube == 1) return 0;
+		//if(isInCube == 0) return 2;
+		//return 3;
 
 	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x80018598, 0, 0, 0), SMS_GetMonteVillageAreaInMario_camera);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8002046c, 0, 0, 0), SMS_GetMonteVillageAreaInMario_camera);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802b9fd0, 0, 0, 0), SMS_GetMonteVillageAreaInMario_camera);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x802bada0, 0, 0, 0), SMS_GetMonteVillageAreaInMario_camera);
 	
 }

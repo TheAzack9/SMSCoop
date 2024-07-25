@@ -18,11 +18,15 @@ namespace SMSCoop {
 	bool hasTriggeredMechaBowserCutscene = false;
 	u32 jetcoasterDemoCallbackCamera = 0;
 	char canRocketMountMario[2] = {1, 1};
+	bool eelFirstDie = false;
+	TTakeActor* bossEel = nullptr;
 
 	void resetAi(TMarDirector *director) {
 		marioEnteringGate = nullptr;
 		hasTriggeredMechaBowserCutscene = false;
 		jetcoasterDemoCallbackCamera = 0;
+		eelFirstDie = false;
+		bossEel = nullptr;
 		for(int i = 0; i < 2; ++i) {
 			canRocketMountMario[i] = 1;
 		}
@@ -79,7 +83,10 @@ namespace SMSCoop {
 		setCamera(getActiveViewport());
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803bb73c, 0, 0, 0), (u32)(&TBiancoGateKeeper_perform_override));
-
+	
+	SMS_WRITE_32(SMS_PORT_REGION(0x800fccdc, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x800fcce0, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x800fcce8, 0, 0, 0), 0x60000000);
 	
 	// Petey
 	
@@ -108,18 +115,34 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b45f4, 0, 0, 0), (u32)(&TBossPakkun_perform_override));
 
 	// Popo / poinks in bianco 5
-	void TPopo_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+	void TPopo_perform_override(TSpineEnemy* enemy, u32 performFlags, JDrama::TGraphics* graphics) {
+		int marioId = getClosestMarioId(&enemy->mTranslation);
+		setActiveMario(marioId);
+		setCamera(marioId);
 		if(performFlags & 0x1) {
-			int marioId = getClosestMarioId(&placement->mTranslation);
-			setActiveMario(marioId);
-			setCamera(marioId);
+			
+			if(enemy->mTarget) {
+				int targetMario = getPlayerId((TMario*)enemy->mTarget);
+				if(targetMario != marioId) {
+					u32* nerveWalkerGraphWander = (u32*)((u32)enemy + 0x70);
+					u8* isNotPossessed = (u8*)(*nerveWalkerGraphWander + 0x60);
+					*isNotPossessed = true;
+				}
+			}
+			
+
+			
+			enemy->mTarget = getMario(marioId);
+				
+			//if(enemy->mTarget) {
+			//	marioId = getPlayerId((TMario*)enemy->mTarget);
+			//} else {
+			//}
 		}
-		perform__5TPopoFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		perform__5TPopoFUlPQ26JDrama9TGraphics(enemy, performFlags, graphics);
 		
-		if(performFlags & 0x1) {
-			setActiveMario(getActiveViewport());
-			setCamera(getActiveViewport());
-		}
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803ba578, 0, 0, 0), (u32)(&TPopo_perform_override));
 
@@ -166,13 +189,18 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803bbd14, 0, 0, 0), (u32)(&TSeal_receiveMessage_override));
 	
 	// strollin stu / hamu kuri
-	void THamuKuri_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
+	void THamuKuri_perform_override(TSpineEnemy* enemy, u32 performFlags, JDrama::TGraphics* graphics) {
 		if(performFlags & 0x1) {
-			int marioId = getClosestMarioId(&placement->mTranslation);
+			int marioId;
+			if(enemy->mTarget) {
+				marioId = getPlayerId((TMario*)enemy->mTarget);
+			} else {
+				marioId = getClosestMarioId(&enemy->mTranslation);
+			}
 			setActiveMario(marioId);
 			setCamera(marioId);
 		}
-		perform__11TSmallEnemyFUlPQ26JDrama9TGraphics(placement, performFlags, graphics);
+		perform__11TSmallEnemyFUlPQ26JDrama9TGraphics(enemy, performFlags, graphics);
 		
 		if(performFlags & 0x1) {
 			setActiveMario(getActiveViewport());
@@ -217,6 +245,7 @@ namespace SMSCoop {
 	// TBombhei / bob-ombs
 	SMS_WRITE_32(SMS_PORT_REGION(0x803b8658, 0, 0, 0), (u32)(&THamuKuri_perform_override));
 	
+
 	// gooble / name kuri
 	void TNameKuri_perform_override(JDrama::TPlacement* placement, u32 performFlags, JDrama::TGraphics* graphics) {
 		if(performFlags & 0x1) {
@@ -646,25 +675,25 @@ namespace SMSCoop {
 	//SMS_PATCH_BL(SMS_PORT_REGION(0x80078e80, 0, 0, 0), TBossGesso_changeAttackMode);
 	
 	// kaze / wind
-	void TKazekun_perform_override(TSpineEnemy* kazekun, u32 performFlags, JDrama::TGraphics* graphics) {
-		if(performFlags & 0x1) {
-			int marioId;
-			if(kazekun->mTarget) {
-				marioId = getPlayerId((TMario*)kazekun->mTarget);
-			} else {
-				marioId = getClosestMarioId(&kazekun->mTranslation);
-			}
-			setActiveMario(marioId);
-			setCamera(marioId);
-		}
-		perform__11TSmallEnemyFUlPQ26JDrama9TGraphics(kazekun, performFlags, graphics);
-		
-		if(performFlags & 0x1) {
-			setActiveMario(getActiveViewport());
-			setCamera(getActiveViewport());
-		}
-	}
-	SMS_WRITE_32(SMS_PORT_REGION(0x803bceac, 0, 0, 0), (u32)(&TKazekun_perform_override));
+	//void TKazekun_perform_override(TSpineEnemy* kazekun, u32 performFlags, JDrama::TGraphics* graphics) {
+	//	if(performFlags & 0x1) {
+	//		int marioId;
+	//		if(kazekun->mTarget) {
+	//			marioId = getPlayerId((TMario*)kazekun->mTarget);
+	//		} else {
+	//			marioId = getClosestMarioId(&kazekun->mTranslation);
+	//		}
+	//		setActiveMario(marioId);
+	//		setCamera(marioId);
+	//	}
+	//	perform__11TSmallEnemyFUlPQ26JDrama9TGraphics(kazekun, performFlags, graphics);
+	//	
+	//	if(performFlags & 0x1) {
+	//		setActiveMario(getActiveViewport());
+	//		setCamera(getActiveViewport());
+	//	}
+	//}
+	//SMS_WRITE_32(SMS_PORT_REGION(0x803bceac, 0, 0, 0), (u32)(&TKazekun_perform_override));
 
 	void TKazekun_updateSquareToMario_override(TSpineEnemy* kaze) {
 		int marioId = getClosestMarioId(&kaze->mTranslation);
@@ -1162,6 +1191,76 @@ namespace SMSCoop {
 
 	// End pinna rail region
 	
+	// Eel
+	// Send message to closest mario
+
+	void TBEelTears_perform_override(THitActor* tear, u32 flags, JDrama::TGraphics* graphics) {
+		int originalMario = getPlayerId(gpMarioOriginal);
+		int marioId = getClosestMarioId(&tear->mTranslation);
+		setActiveMario(marioId);
+		setCamera(marioId);
+		
+		perform__10TBEelTearsFUlPQ26JDrama9TGraphics(tear, flags, graphics);
+		
+		setActiveMario(originalMario);
+		setCamera(originalMario);
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b960c, 0, 0, 0), (u32)(&TBEelTears_perform_override));
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b94a4, 0, 0, 0), (u32)(&TBEelTears_perform_override));
+
+
+	void SMS_SendMessageToBothMario(THitActor* eel, u32 msg) {
+		for(int i = 0; i < getPlayerCount(); ++i) {
+			getMario(i)->receiveMessage(eel, msg);
+		}
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x800d0ebc, 0, 0, 0), SMS_SendMessageToBothMario);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x800d0f64, 0, 0, 0), SMS_SendMessageToBothMario);
+	SMS_PATCH_BL(SMS_PORT_REGION(0x800d0f80, 0, 0, 0), SMS_SendMessageToBothMario);
+	
+	u32 TNerveBossEelDie_execute(TNerveBase<JDrama::TActor>* eel, TSpineBase<TTakeActor>* eelSpineBase) {
+		bossEel = eelSpineBase->mTarget;
+		if(!eelFirstDie) {
+			SMS_SendMessageToBothMario((THitActor*)eelSpineBase->mTarget, 0xe);
+			for(int i = 0; i < getPlayerCount(); ++i) {
+				TMario* mario = getMario(i);
+				mario->mWaterHealth = mario->mMaxWaterHealth;
+			}
+
+
+			eelFirstDie = true;
+		}
+
+		return execute__16TNerveBossEelDieCFP24TSpineBase_1(eel, eelSpineBase);
+	}
+	
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b8d98, 0, 0, 0), (u32)(&TNerveBossEelDie_execute));
+	
+	u32 TNerveBossEelEat_execute(TNerveBase<JDrama::TActor>* eel, TSpineBase<TTakeActor>* eelSpineBase) {
+		bossEel = eelSpineBase->mTarget;
+		return execute__16TNerveBossEelEatCFP24TSpineBase_1(eel, eelSpineBase);
+	
+	}
+	SMS_WRITE_32(SMS_PORT_REGION(0x803b8da8, 0, 0, 0), (u32)(&TNerveBossEelEat_execute));
+	
+	SMS_WRITE_32(SMS_PORT_REGION(0x8025d7d8, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x8025d7dc, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x8025d7e0, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x8025d7e4, 0, 0, 0), 0x7fe3fb78);
+	
+	Mtx44* getHolderTakingMtx(TMario* mario) {
+		if(mario->mHolder) {
+			return mario->mHolder->getTakingMtx();
+		}
+		if(bossEel) {
+			return bossEel->getTakingMtx();
+		}
+		return mario->getTakingMtx(); // Idk what else to put here lmao
+	}
+	SMS_PATCH_BL(SMS_PORT_REGION(0x8025d7e8, 0, 0, 0), getHolderTakingMtx);
+
+	// End eel
+
 	bool mantaEscapesFrom[MARIO_COUNT];
 	// Fixes manta escape
 	void TBossMantaManager_updateMantaEscape(void* bossMantaManager) {

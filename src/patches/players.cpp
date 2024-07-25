@@ -19,6 +19,8 @@
 #include "splitscreen.hxx"
 #include "shine.hxx"
 #include "settings.hxx"
+#include "pvp.hxx"
+#include "gui.hxx"
 
 #define MARIO_COUNT 2
 
@@ -26,7 +28,9 @@ static TMario** gpMarioOriginalCoop = (TMario**)0x8040e0e8; // WTF?
 static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 static u8* isThpInit = (u8*)0x803ec206;
 static u8* ThpState = (u8*)0x803ec204;
-extern SMSCoop::SplitScreenSetting gSplitScreenSetting;
+extern SMSCoop::CameraTypeSetting gCameraTypeSetting;
+extern SMSCoop::PlayerTypeSetting gPlayer1TypeSetting;
+extern SMSCoop::PlayerTypeSetting gPlayer2TypeSetting;
 
 namespace SMSCoop {
 	typedef struct {
@@ -46,6 +50,7 @@ namespace SMSCoop {
 	static u8 loadedMarios = 0;
 	static TMario* marios[MARIO_COUNT];
 	static bool isMarioCurrentlyLoadingViewObj = false;
+	static bool marioIsSet = false;
 
 	void setActiveMario(int id) {
 		if(id > loadedMarios) return;
@@ -56,11 +61,15 @@ namespace SMSCoop {
 		SMS_SetMarioAccessParams__Fv();
 	}
 	
+	bool isMarioSet() {
+		return marioIsSet;
+	}
+	
 	int isSingleplayerLevel() {
         TApplication *app      = &gpApplication;
         TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
-		if(gSplitScreenSetting.getInt() == SplitScreenSetting::NONE) {
+		if(gCameraTypeSetting.getInt() == CameraTypeSetting::REGULAR) {
 			return true;
 		}
 		
@@ -86,7 +95,7 @@ namespace SMSCoop {
 	}
 
 	int isSingleCameraLevel() {
-		if(gSplitScreenSetting.getInt() == SplitScreenSetting::RETRO) return true;
+		if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isPvpLevel()) return true;
 	
 		return isSingleplayerLevel();
 	}
@@ -125,6 +134,29 @@ namespace SMSCoop {
 		return isMarioCheck;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029d7d8, 0, 0, 0), TMarioStrCmp_Override);
+
+	void setSkinForPlayer(int player, int skinType) {
+		if(skinType == PlayerTypeSetting::MARIO) {
+			SMSCoop::setSkinForPlayer(player, "/data/mario.arc", false, 0, 0);
+		}
+		else if(skinType == PlayerTypeSetting::LUIGI) {
+			SMSCoop::setSkinForPlayer(player, "/data/luigi.arc", false, 1, 1);
+		}
+		else if(skinType == PlayerTypeSetting::SHADOW_MARIO) {
+			SMSCoop::setSkinForPlayer(player, "/data/kagemario.arc", true, 2, 0);
+		}
+	}
+
+	void setPlayerSkin(TMarDirector* director) {
+		if(!isPvpLevel()) {
+			setSkinForPlayer(0, gPlayer1TypeSetting.getInt());
+			setSkinForPlayer(1, gPlayer2TypeSetting.getInt());
+		} else {
+			setSkinForPlayer(0, PlayerTypeSetting::MARIO);
+			setSkinForPlayer(1, PlayerTypeSetting::LUIGI);
+		}
+		marioIsSet = false;
+	}
 	 
 	//
 	//void* setModelSizeForMario(u32 size) {
@@ -224,7 +256,7 @@ namespace SMSCoop {
 
 				if(hasCustomAnimations(i)) {
 				
-					OSReport("Loading custom animations for player %X\n", i);
+					//OSReport("Loading custom animations for player %X\n", i);
 				
 					
 					modelData[i].marioAnmData = new MActorAnmData();
@@ -238,7 +270,7 @@ namespace SMSCoop {
 					//testing = testingkeeper->createAndRegister(modelData, 0);
 					//testing->setModel(testModel, 0x0);
 
-					OSReport("Exists %X\n", marioMActor->checkAnmFileExist("animation", 4));
+					//OSReport("Exists %X\n", marioMActor->checkAnmFileExist("animation", 4));
 					marioMActor->setBtk("animation");
 
 					f32 framerate = SMSGetAnmFrameRate();
@@ -267,7 +299,7 @@ namespace SMSCoop {
 					//testing->setBtk("animation");
 
 					//OSReport("HMMM %X %X \n", (u32)testAnimData, (u32)testing);
-					OSReport("Custom animation actor finished\n");
+					//OSReport("Custom animation actor finished\n");
 				}
 
 				mario_viewObjPtrList->mViewObjList.push_back(mario);
@@ -356,22 +388,22 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80299a84, 0, 0, 0), TMarioGamePad_updateMeaning_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802a6024, 0, 0, 0), TMarioGamePad_updateMeaning_override);
-	
-	void doRunning_override(TMario* mario) {
-		u8 playerId = getPlayerId(mario);
-		if(hasCustomAnimations(playerId)) {
-			mario->mBaseAcceleration *= 2.0;
-			mario->doRunning();
-			mario->mBaseAcceleration /= 2.0;
-		}
-		else {
-			mario->doRunning();
-		}
-	}
-	
-	SMS_PATCH_BL(SMS_PORT_REGION(0x8025a5a4, 0, 0, 0), doRunning_override);
-	SMS_PATCH_BL(SMS_PORT_REGION(0x8025aad8, 0, 0, 0), doRunning_override);
-	SMS_PATCH_BL(SMS_PORT_REGION(0x8025b0a4, 0, 0, 0), doRunning_override);
+	//
+	//void doRunning_override(TMario* mario) {
+	//	u8 playerId = getPlayerId(mario);
+	//	if(hasCustomAnimations(playerId)) {
+	//		mario->mBaseAcceleration *= 2.0;
+	//		mario->doRunning();
+	//		mario->mBaseAcceleration /= 2.0;
+	//	}
+	//	else {
+	//		mario->doRunning();
+	//	}
+	//}
+	//
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x8025a5a4, 0, 0, 0), doRunning_override);
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x8025aad8, 0, 0, 0), doRunning_override);
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x8025b0a4, 0, 0, 0), doRunning_override);
 
 	int buttonsPressedWhileHeld[MARIO_COUNT];
 	int prevButtons[MARIO_COUNT];
@@ -494,7 +526,7 @@ namespace SMSCoop {
 
 
 	bool SMS_isMultiPlayerMap_override() {
-		return gSplitScreenSetting.getInt() == SplitScreenSetting::RETRO && !isSingleplayerLevel();
+		return gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isSingleplayerLevel() && !isPvpLevel();
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80021138, 0, 0, 0), SMS_isMultiPlayerMap_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80025438, 0, 0, 0), SMS_isMultiPlayerMap_override);
@@ -507,12 +539,13 @@ namespace SMSCoop {
 	void SetMario(TMarDirector* director) {
 		bool bootState = TFlagManager::smInstance->getFlag(0x30006);
 		CPolarSubCamera* originalCamera = getCameraById(0);
+		marioIsSet = true;
 		for (int i = loadedMarios-1; i >= 0; i--) {
-			if(gSplitScreenSetting.getInt() == SplitScreenSetting::RETRO) {
+			if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isPvpLevel()) {
 				TMario* mario = getMario(i);
 				const TVec3f* marioPos = &mario->mTranslation;
 				originalCamera->addMultiPlayer(marioPos, marioPos->y, marioPos->z);
-				OSReport("Adding split screen camera for player %X and cam %X\n", i, originalCamera);
+				//OSReport("Adding split screen camera for player %X and cam %X\n", i, originalCamera);
 			}
 			TFlagManager::smInstance->setFlag(0x30006, bootState);
 			setActiveMario(i);
@@ -611,10 +644,14 @@ namespace SMSCoop {
 	// Optimization: Check for shadow individually between players
 	SMS_WRITE_32(SMS_PORT_REGION(0x80231834, 0, 0, 0), 0x60000000);
 
+	// Description: Always update life counter when a diff
+	// Normally it only updates on increments, which is stupid
+	SMS_WRITE_32(SMS_PORT_REGION(0x801426d8, 0, 0, 0), 0x418200b0);
 	
 
 	// Fix tree collision
 	SMS_WRITE_32(SMS_PORT_REGION(0x801f6cc4, 0, 0, 0), 0x60000000);
+	SMS_WRITE_32(SMS_PORT_REGION(0x801f6dd0, 0, 0, 0), 0x60000000);
 	
 	// Fix cloud collision
 	SMS_WRITE_32(SMS_PORT_REGION(0x801dfc1c, 0, 0, 0), 0x60000000);
@@ -624,6 +661,11 @@ namespace SMSCoop {
 
 	void loserExecOverride(TMario* mario) {
 		if(isShineGot()) return;
+		
+		if(isPvpLevel()) {
+			onDeathPvp();
+		}
+
 		int lives = TFlagManager::smInstance->getFlag(MarioFlagId_Lives);
 		if(lives <= 0) {
 			for(int i = 0; i < loadedMarios; ++i) {
@@ -634,9 +676,20 @@ namespace SMSCoop {
 		}
 
 		TFlagManager::smInstance->decFlag(MarioFlagId_Lives, 1);
+		lives -= 1;
 		int marioId = getPlayerId(mario);
 		
 		mario->dropObject();
+
+
+		for(int i = 0; i < loadedMarios; ++i) {
+			TGCConsole2* console = getConsoleForPlayer(i);
+
+			//// Reset min timer time to 0 and make the startMario appear (if it isn't open)
+			*(u16*)((u32)console + 0x3ae) = 0;
+			startAppearMario__11TGCConsole2Fb(console, true);
+
+		}
 		//for(int i = 0; i < 2; ++i) {
 		//	//OSReport("Offset %X\n", (u32)(((u32*)consoles[i]+ 0x70/4)) - (u32)consoles[i]);
 		//	*(u16*)(((u32*)consoles[i]+ 0x70/4)) = 200;
