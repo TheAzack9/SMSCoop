@@ -51,6 +51,8 @@ namespace SMSCoop {
 	static TMario* marios[MARIO_COUNT];
 	static bool isMarioCurrentlyLoadingViewObj = false;
 	static bool marioIsSet = false;
+	static bool isCameraCaptured = false;
+	static u8 focusedMario = 0;
 
 	void setActiveMario(int id) {
 		if(id > loadedMarios) return;
@@ -63,6 +65,20 @@ namespace SMSCoop {
 	
 	bool isMarioSet() {
 		return marioIsSet;
+	}
+
+	
+	bool isFocusedCamera() {
+		return isCameraCaptured;
+	}
+
+	u8 getFocusedPlayer() {
+		return focusedMario;
+	}
+
+	void setFocusedPlayer(u8 playerId) {
+		isCameraCaptured = true;
+		focusedMario = playerId;
 	}
 	
 	int isSingleplayerLevel() {
@@ -96,7 +112,6 @@ namespace SMSCoop {
 
 	int isSingleCameraLevel() {
 		if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isPvpLevel()) return true;
-	
 		return isSingleplayerLevel();
 	}
 	
@@ -156,6 +171,8 @@ namespace SMSCoop {
 			setSkinForPlayer(1, PlayerTypeSetting::LUIGI);
 		}
 		marioIsSet = false;
+		isCameraCaptured = false;
+		focusedMario = 0;
 	}
 	 
 	//
@@ -262,8 +279,8 @@ namespace SMSCoop {
 					modelData[i].marioAnmData = new MActorAnmData();
 					init__13MActorAnmDataFPCcPPCc(modelData[i].marioAnmData, "mario/btk");
 					MActor* marioMActor = new MActor(modelData[i].marioAnmData);
-					marioMActor->unlockDLIfNeed();
-					marioMActor->initDL();
+					//marioMActor->unlockDLIfNeed();
+					//marioMActor->initDL();
 					marioMActor->setModel(mario->mModelData->mModel, 0);
 
 					modelData[i].marioMActor = marioMActor; 
@@ -278,7 +295,7 @@ namespace SMSCoop {
 					ctrl->mFrameRate = framerate;
 					ctrl->mAnimState = J3DFrameCtrl::LOOP;
 
-					marioMActor->setLightType(3);
+					//marioMActor->setLightType(3);
 
 					//SMS_MakeDLAndLock(testing->mModel);
 					//OSReport("Animation Id %X %X\n", testing->mBtkInfo, testing->mBtkInfo->mFrameCtrl);
@@ -475,6 +492,32 @@ namespace SMSCoop {
 				setCamera(playerId);
 			}
 
+			
+			if(isSingleCameraLevel()) {
+				bool isDpadPressed = mario->mController->mButtons.mFrameInput & JUTGamePad::EButtons::DPAD_UP;
+				CPolarSubCamera* originalCamera = getCameraById(0);
+				if(isDpadPressed) {
+					if(!isCameraCaptured) {
+						for(int i = 0; i < getPlayerCount(); ++i) {
+							TMario* m = getMario(i);
+							const TVec3f* marioPos = &m->mTranslation;
+							originalCamera->removeMultiPlayer(marioPos);
+						}
+						isCameraCaptured = true;
+						focusedMario = playerId;
+					} else {
+						for(int i = 0; i < getPlayerCount(); ++i) {
+							TMario* m = getMario(i);
+							const TVec3f* marioPos = &m->mTranslation;
+							originalCamera->addMultiPlayer(marioPos, marioPos->y, marioPos->z);
+						}
+						isCameraCaptured = false;
+						focusedMario = playerId;
+					}
+				}
+				//OSReport("Adding split screen camera for player %X and cam %X\n", i, originalCamera);
+			}
+
 		}
 
 		if(hasCustomAnimations(playerId)) {
@@ -526,7 +569,7 @@ namespace SMSCoop {
 
 
 	bool SMS_isMultiPlayerMap_override() {
-		return gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isSingleplayerLevel() && !isPvpLevel();
+		return gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isSingleplayerLevel() && !isPvpLevel() && !isCameraCaptured;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80021138, 0, 0, 0), SMS_isMultiPlayerMap_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80025438, 0, 0, 0), SMS_isMultiPlayerMap_override);

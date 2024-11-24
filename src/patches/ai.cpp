@@ -316,6 +316,8 @@ namespace SMSCoop {
 	SMS_WRITE_32(SMS_PORT_REGION(0x803bc8bc, 0, 0, 0), (u32)(&TSamboFlower_perform_override));
 	// Birds / TAnimalBird
 	SMS_WRITE_32(SMS_PORT_REGION(0x803abe98, 0, 0, 0), (u32)(&TSamboFlower_perform_override));
+	// Boats / TFruitsBoat
+	SMS_WRITE_32(SMS_PORT_REGION(0x803bab94, 0, 0, 0), (u32)(&TSamboFlower_perform_override));
 
 	
 	// HanaSambo / pokeys

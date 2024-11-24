@@ -100,6 +100,19 @@ namespace SMSCoop {
 	// TODO: Fix particles being clipped when outside viewport
 	void performCamerasOverhaul(CPolarSubCamera* camera, u32 param_1, JDrama::TGraphics* graphics) {
 		TApplication* app = &gpApplication;
+		bool focusedCamera = isFocusedCamera();
+
+		if(focusedCamera) {
+			int focusedPlayer = getFocusedPlayer();
+			setActiveMario(focusedPlayer);
+			CPolarSubCamera* pCamera = cameras[0];
+			((u32*)pCamera)[0x120 / 4] = (u32)app->mGamePads[focusedPlayer];
+			perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
+			((u32*)pCamera)[0x120 / 4] = (u32)app->mGamePads[getActiveViewport()];
+			setActiveMario(getActiveViewport());
+			return;
+		}
+
 		for (int i = getPlayerCount()-1; i >= 0; i--) {
 			if(i == getActiveViewport()) continue;
 			CPolarSubCamera* pCamera = cameras[i];
@@ -110,6 +123,8 @@ namespace SMSCoop {
 		}
 	
 		int i = getActiveViewport();
+		
+
 		CPolarSubCamera* pCamera = cameras[i];
 		setActiveMario(i);
 		setCamera(i);
@@ -117,7 +132,7 @@ namespace SMSCoop {
 		perform__15CPolarSubCameraFUlPQ26JDrama9TGraphics(pCamera, param_1, graphics);
 
 		// Custom controls for the retro camera
-		if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isPvpLevel()) {
+		if(isSingleCameraLevel() && !isFocusedCamera()) {
 			for(int i = 0; i < getPlayerCount(); ++i) {
 
 				MultiplayerCameraPhi += gpApplication.mGamePads[i]->mCStick.mStickX * 40.0;
@@ -132,6 +147,8 @@ namespace SMSCoop {
 				MultiplayerCameraTheta = 0;
 
 		}
+		setActiveMario(getActiveViewport());
+		setCamera(getActiveViewport());
 	} 
 
 	// Custom override of multiplayer cam to actually make it semi usable

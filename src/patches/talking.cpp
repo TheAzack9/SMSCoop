@@ -59,7 +59,9 @@ namespace SMSCoop {
 		if(initiatingTalking && !isTalking()) {
 			//OSReport("setting Mario talking %d initiated by %d\n", marioIdTalking, initiatingPlayer);
 			marioIdTalking = initiatingPlayer;
-
+			if(isSingleCameraLevel()) {
+				setFocusedPlayer(marioIdTalking);
+			}
 		}
 		
 		for(int i = 0; i < getPlayerCount(); ++i) {
@@ -82,12 +84,19 @@ namespace SMSCoop {
 			TMario* mario = getMario(i);
 			if(mario->mState == TMario::State::STATE_TALKING) {
 				someoneTalking = true;	
+				*((u32*)&director->mGamePads[i]->mState) |= 0x80000; // Player is talking
 			}
+		}
 
-			if(mario->mState != TMario::State::STATE_TALKING) {
-				*((u32*)&director->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+		if(someoneTalking) {
+			for(int i = 0; i < getPlayerCount(); ++i) {
+				TMario* mario = getMario(i);
+				// If not the one talking
+				if(mario->mState != TMario::State::STATE_TALKING) {
+					*((u32*)&director->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+					*((u32*)&director->mGamePads[i]->mState) &= ~0x40000; // Player cannot talk when another is talking
+				}
 			}
-				
 		}
 
 		playerIdPerFrame = (playerIdPerFrame+1) % getPlayerCount();
@@ -133,7 +142,9 @@ namespace SMSCoop {
 
 		if(getPlayerCount() > 1) {
 			TMarioGamePad* p1Gamepad = marDirector->mGamePads[0];
-			marDirector->mGamePads[0] = marDirector->mGamePads[getActiveViewport()];
+			u8 activeMario = getActiveViewport();
+			setActiveMario(activeMario);
+			marDirector->mGamePads[0] = marDirector->mGamePads[activeMario];
 
 			THitActor* nearestNpc = (THitActor*)marDirector->findNearestTalkNPC();
 
@@ -141,6 +152,11 @@ namespace SMSCoop {
 			marDirector->mGamePads[0]->mFrameMeaning = marDirector->mGamePads[0]->mMeaning;
 			
 			*((u32*)&marDirector->mGamePads[0]->mState) &= ~0x100000; // Allow to move during cutscenes
+
+			// Ensure that controller is in talking state
+			//if(activeMario == marioIdTalking) {
+			//	*((u32*)&marDirector->mGamePads[0]->mState) |= 0x80000; // Allow to move during cutscenes
+			//}
 			
 			movement_game__12TMarDirectorFv(marDirector);
 			if(nearestNpc != nullptr) {
@@ -175,9 +191,9 @@ namespace SMSCoop {
 	THitActor* findNearestTalkNPC(TMarDirector* marDirector) {
 		TBaseNPC* nearestNpc = (TBaseNPC*)marDirector->findNearestTalkNPC();
 
-		//if(nearestNpc && PSVECDistance((Vec*)&nearestNpc->mTranslation, (Vec*)gpMarioPos) > 200.0f) {
-		//	return nullptr;
-		//}
+		if(nearestNpc && PSVECDistance((Vec*)&nearestNpc->mTranslation, (Vec*)gpMarioPos) > 300.0f) {
+			return nullptr;
+		}
 
 		if(nearestNpc && (nearestNpc->mStateFlags.asU32 & 0x2) != 0 && (nearestNpc->mObjectType & 0x1) != 0) {
 			//OSReport("invalidating talk npc\n");
@@ -329,7 +345,11 @@ namespace SMSCoop {
 				setActiveMario(i);
 				setCamera(i);
 			} else {
-				perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags & ~8, graphics);
+				if(isSingleCameraLevel()) {
+					perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags, graphics);
+				} else {
+					perform__8TTalk2D2FUlPQ26JDrama9TGraphics(talk2d, renderFlags & ~8, graphics);
+				}
 			}
 		} else {
 			// This should never happen, but i am suspecting that it did during one of my runs...

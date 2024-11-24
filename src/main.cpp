@@ -651,8 +651,12 @@ SMS_WRITE_32(SMS_PORT_REGION(0x8029D0BC, 0x80294f98, 0, 0), 0x60000000);
 // Extend Exception Handler
 SMS_WRITE_32(SMS_PORT_REGION(0x802C7638, 0x802bf6cc, 0, 0), 0x60000000);  // gpr info
 
+// Disable hiding game ui from better sms
+SMS_WRITE_32(SMS_PORT_REGION(0x80140844, 0, 0, 0), 0x548007ff);
+
+
 void setDebug(TApplication *application) {
-    //BetterSMS::setDebugMode(true);
+    BetterSMS::setDebugMode(true);
 }
 
 

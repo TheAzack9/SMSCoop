@@ -4,4 +4,5 @@
 
 namespace SMSCoop {
 	TGCConsole2* getConsoleForPlayer(int id);
+	bool isInGuide();
 }

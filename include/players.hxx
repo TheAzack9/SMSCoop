@@ -6,6 +6,9 @@
 namespace SMSCoop {
 	int isSingleplayerLevel();
 	int isSingleCameraLevel();
+	bool isFocusedCamera();
+	u8 getFocusedPlayer();
+	void setFocusedPlayer(u8 playerId);
 	int getPlayerCount();
 	void setActiveMario(int id);
 	bool isMarioSet();
