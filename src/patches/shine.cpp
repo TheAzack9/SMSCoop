@@ -15,7 +15,6 @@
 #include "module.hxx"
 
 extern SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting;
-extern SMSCoop::SpeedrunSetting gSpeedrunSetting;
 namespace SMSCoop {
 	
 	static int balloonTimer[2] = {0, 0};
@@ -54,9 +53,6 @@ namespace SMSCoop {
 		if(response == 1) {
 			marioThatPickedShine = marioId;
 			hasGottenShine = true;
-			if(gSpeedrunSetting.getInt() == SpeedrunSetting::PRACTICE) {
-				stopTimer();
-			}
 		} 
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x801bd360, 0, 0, 0), TMario_receiveMessage_TShine_touchPlayer_override);
@@ -123,7 +119,7 @@ namespace SMSCoop {
 			TMario* cMario = getMario(i);
 			float dist = PSVECDistance((Vec*)&shine->mTranslation, (Vec*)&cMario->mTranslation);
 
-			if(dist > 3000 && (gShineGrabDistanceSetting.getBool() || gSpeedrunSetting.getInt() > 0)) {
+			if(dist > 3000 && (gShineGrabDistanceSetting.getBool())) {
 				// TODO
 				if(balloonTimer[i] <= 0) {
 					startAppearBalloon__11TGCConsole2FUlb(getConsoleForPlayer(i), 93, false);

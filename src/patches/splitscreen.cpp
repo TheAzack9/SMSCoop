@@ -23,13 +23,13 @@
 #include <Dolphin/MTX.h>
 #include <BetterSMS/libs/global_list.hxx>
 #include <BetterSMS/module.hxx>
+#include <BetterSMS/memory.hxx>
 
 #include "camera.hxx"
 #include "players.hxx"
 #include "talking.hxx"
 #include "yoshi.hxx"
 #include "settings.hxx"
-#include "pvp.hxx"
 
 static u32* gpSilhouetteManager = (u32*)0x8040E090;
 static u32* gpQuestionManager = (u32*)0x8040e088;
@@ -50,7 +50,6 @@ namespace SMSCoop {
         u32 m_flag;
     };
 
-    static TPerformList* g_objectsToUpdate;
     static BetterSMS::TGlobalList<BufferObj> g_performListBuffer;
 
     void* g_sun;
@@ -98,30 +97,13 @@ namespace SMSCoop {
         g_sunModel = nullptr;
         g_sunLensFlare = nullptr;
         g_sunLensGlow = nullptr;
-        g_objectsToUpdate = nullptr;
+        g_performListBuffer.clear();
         //g_objectsToUpdate->Erase(g_objectsToUpdate->begin(), g_objectsToUpdate->end());
     }
 
     void pushToPerformList(JDrama::TViewObj *obj, u32 flag) {
-        if(g_objectsToUpdate) {
-            g_objectsToUpdate->push_back(obj, flag);
-        } else {
-            g_performListBuffer.push_back(BufferObj(obj, flag));
-        }
+        g_performListBuffer.push_back(BufferObj(obj, flag));
     }
-
-    int searchF_performList_movement(void* perfListGroup, u32 keyCode, char* name) {
-        u16 mkeyCode = JDrama::TNameRef::calcKeyCode("Player 2 PfLst");
-        g_objectsToUpdate = (TPerformList*)searchF__Q26JDrama55TNameRefPtrListT_Q(perfListGroup, mkeyCode, "Player 2 PfLst");
-
-        for(auto& obj : g_performListBuffer) {
-            g_objectsToUpdate->push_back(obj.m_obj, obj.m_flag);
-        }
-        g_performListBuffer.clear();
-        
-        return searchF__Q26JDrama55TNameRefPtrListT_Q(perfListGroup, keyCode, name);
-    }
-    SMS_PATCH_BL(SMS_PORT_REGION(0x802b9404, 0, 0, 0), searchF_performList_movement);
 
     // Description: Get's an instance of the 3d viewport
     // FIXME: Get this from name ref instead
@@ -376,10 +358,10 @@ namespace SMSCoop {
 
                     //OSReport("virtual table ref %X\n", *(u32*)manager);
 
-                    u32 objCount = manager->_14;
+                    u32 objCount = manager->mObjCount;
                     u32 id = 0;
                     while(id < objCount) {
-                        TLiveActor* actor = *reinterpret_cast<TLiveActor**>(manager->_18 + id);
+                        TLiveActor* actor = *reinterpret_cast<TLiveActor**>(manager->mObjAry + id);
                         if(actor->mStateFlags.asU32 & 0x1 || actor->mObjectID == 0x4000003b) {
                             id++;
                             continue;
@@ -529,63 +511,25 @@ namespace SMSCoop {
 
     // Description: Before doing GXInvalidate, render other players perspective
     static void processGXInvalidateTexAll() { 
-        //OSReport("---------------------\n");
-        //OSReport("Starting p2 screen \n");
-        //OSReport("Mario frame start\n");
         TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
-        //if(!isSingleplayerLevel()) {
-        //    const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal];
-        //    GXSetTexCopySrc(viewport.mX1, viewport.mY1, viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1);
-        //    GXSetTexCopyDst(viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1, GXTexFmt::GX_TF_RGB565, GX_FALSE);
-        //    //GXCopyDisp(tempTexture, GX_FALSE);
-        //    GXCopyTex(tempTexture, GX_FALSE);
-        //}
 
         GXInvalidateTexAll(); 
         if(!isSingleCameraLevel()) {
             
 
-            //GXTexObj texObj;
-            //GXInitTexObj(&texObj, tempTexture, viewport.mX2 - viewport.mX1, viewport.mY2 - viewport.mY1, GXTexFmt::GX_TF_RGB565, 0, 0, 0);
-            //GXInitTexObjLOD(&texObj, 0, 0, 0, 0.0, 0.0, 0, 0, 0);
-            //GXLoadTexObj(&texObj, 0);
-
-
-            //if(*gpSilhouetteManager) {
-            //    u8* silhouetteAlpha = (u8*)(*gpSilhouetteManager + 0x48);
-            //    //*silhouetteAlpha = 128;
-            //}
-            //u8* silhouetteAlpha = (u8*)(*gpSilhouetteManager + 0x48 / 4);
-            //OSReport("Silhouette alpha %X %d\n", *gpSilhouetteManager, *silhouetteAlpha);
-            
-            
-            /*JUTTexture* tex = *(JUTTexture**)(*(u32*)(0x8040e0bc) + 0x10);
-            OSReport("Contents of GXObj %X %X\n", tex, &tex->mTexObj2);
-            for(int i = 0; i < 8; ++i) {
-                OSReport("%X ", tex->mTexObj2.val[i]);
-            }
-            OSReport("\n");*/
-            //*(JUTTexture**)(*(u32*)(0x8040e0bc) + 0x10) = screenTextures[1];
             setViewport(0);
             setActiveMario(0);
             setCamera(0);
             isRenderingOtherPerspectives = true;
             setWaterColorForMario(gpMarioOriginal);
-                CPolarSubCamera* camera = getCameraById(0);
-                //PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)graphicsPointer + 0xb4));
-                // Set camera properties to TGraphics
-                camera->perform(0x14, graphicsPointer);
-                TMario* currentMario = getMario(0);
-                Vec marioPos;
-                marioPos.x = currentMario->mTranslation.x;
-                marioPos.y = currentMario->mTranslation.y + 75.0;
-                marioPos.z = currentMario->mTranslation.z;
-     /*       u32 retraceCount = VIGetRetraceCount() / 2;
-            do {
-                OSSleepThread(&retraceQueue);
-            } while(retraceCount);*/
-
-            //VIWaitForRetrace();
+            CPolarSubCamera* camera = getCameraById(0);
+            // Set camera properties to TGraphics
+            camera->perform(0x14, graphicsPointer);
+            TMario* currentMario = getMario(0);
+            Vec marioPos;
+            marioPos.x = currentMario->mTranslation.x;
+            marioPos.y = currentMario->mTranslation.y + 75.0;
+            marioPos.z = currentMario->mTranslation.z;
 
             // TODO: Create a custom perform list of things that must update before drawing on p2 screen
             if(g_sunModel) {
@@ -600,30 +544,20 @@ namespace SMSCoop {
 
             TMarDirector_movement_game_override(director);
 
-         //   s32 cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeArea, gpMarioPos);
-	        //*(u32*)((u32)gpCubeArea + 0x1c) = cubeNo;
-         //   cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastA, gpMarioPos);
-	        //*(u32*)((u32)gpCubeFastA + 0x1c) = cubeNo;
-         //   cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastB, gpMarioPos);
-	        //*(u32*)((u32)gpCubeFastB + 0x1c) = cubeNo;
-         //   cubeNo = getInCubeNo__16TCubeManagerBaseCFRC3Vec(gpCubeFastC, gpMarioPos);
-	        //*(u32*)((u32)gpCubeFastC + 0x1c) = cubeNo;
-         //   
-                gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
-                gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
-                gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
-                gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
-                /*gpCubeMirror->mCurrentCube = gpCubeMirror->getInCubeNo(marioPos);
-                gpCubeCamera->mCurrentCube = gpCubeCamera->getInCubeNo(marioPos);
-                gpCubeWire->mCurrentCube = gpCubeWire->getInCubeNo(marioPos);
-                gpCubeStream->mCurrentCube = gpCubeStream->getInCubeNo(marioPos);
-                gpCubeShadow->mCurrentCube = gpCubeShadow->getInCubeNo(marioPos);*/
-                //gpCubeSoundChange->mCurrentCube = gpCubeSoundChange->getInCubeNo(marioPos);
-                //gpCubeSoundEffect->mCurrentCube = gpCubeSoundEffect->getInCubeNo(marioPos);
-            // Simulate quarter frames lmao.
+            gpCubeArea->mCurrentCube = gpCubeArea->getInCubeNo(marioPos);
+            gpCubeFastA->mCurrentCube = gpCubeFastA->getInCubeNo(marioPos);
+            gpCubeFastB->mCurrentCube = gpCubeFastB->getInCubeNo(marioPos);
+            gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo(marioPos);
+
+            // Simulate quarter frames.
             // Fixes Cube streams
             for(int i = 0; i < 4; ++i) {
-                g_objectsToUpdate->perform(0x3, graphicsPointer);
+                auto it = g_performListBuffer.begin();
+                auto end = g_performListBuffer.end();
+                while(it != end) {
+                    it->m_obj->testPerform(it->m_flag & 0x3, graphicsPointer);
+                    it++;
+                }
             }
 
 
@@ -633,42 +567,11 @@ namespace SMSCoop {
             auto end = director->mPerformListCalcAnim->end();
             while(it != end) {
                 JDrama::TViewObj* viewObj = reinterpret_cast<JDrama::TViewObj*>(it->mData);
-                ///*OSReport*/("Testing %s %X %X %X\n", viewObj->mKeyName, viewObj->mPerformFlags, viewObj->getType(), *(u32*)viewObj);
-                //if(*(u32*)viewObj == 0x803c0f5c || *(u32*)0x803C0F5C) { // JDrama::TViewObjPtrListT
-                //    JDrama::TViewObjPtrListT<JDrama::TViewObj>* list = reinterpret_cast<JDrama::TViewObjPtrListT<JDrama::TViewObj>*>(viewObj);
-                //    //OSReport("JDrama::TViewObjPtrListT\n");
-                //    auto it2 = list->mViewObjList.begin();
-                //    auto end2 = list->mViewObjList.end();
-                //    while(it2 != end2) {
-                //        JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
-                //        //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
-                //        it2++;
-                //    }
-                //}
-                //if(*(u32*)viewObj == 0x803da444 || *(u32*)0x803DA444) { // TIdxGroupObj (also a TViewObjPtrList)
-                //    TIdxGroupObj* list = reinterpret_cast<TIdxGroupObj*>(viewObj);
-                //    auto it2 = list->mViewObjList.begin();
-                //    auto end2 = list->mViewObjList.end();
-                //    //OSReport("TIdxGroupObj\n");
-                //    while(it2 != end2) {
-                //        JDrama::TViewObj* obj2 = reinterpret_cast<JDrama::TViewObj*>(*it2);
-                //        //OSReport("  Child %s %X %X %X\n", obj2->mKeyName, obj2->mPerformFlags, obj2->getType(), *(u32*)obj2);
-                //        it2++;
-                //    }
-                //}
                 if(*(u32*)viewObj == 0x803ad958) { // TConductor
                     TConductor* conductor = reinterpret_cast<TConductor*>(viewObj);
                     recalculateClipActors(conductor->_10, 2, false);
-
-                    //u32 testList = *(u32*)((u32)conductor + 0x1e);
-                    //JGadget::TList<TLiveActor *>* enemyManagerList = *(JGadget::TList<TLiveActor *>**)(testList + 0x2);
-                    //recalculateClipActors(*enemyManagerList, 1);
                 }
                 it = it->mNext;
-            }
-
-            if(isPvpLevel()) {
-                drawPvp();
             }
 
             director->mPerformListPreDraw->perform(0xffffffff, graphicsPointer);

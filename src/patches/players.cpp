@@ -19,7 +19,6 @@
 #include "splitscreen.hxx"
 #include "shine.hxx"
 #include "settings.hxx"
-#include "pvp.hxx"
 #include "gui.hxx"
 
 #define MARIO_COUNT 2
@@ -29,8 +28,6 @@ static TMario** gpMarioForCallBackCoop = (TMario**)0x8040e0e0; // WTF?
 static u8* isThpInit = (u8*)0x803ec206;
 static u8* ThpState = (u8*)0x803ec204;
 extern SMSCoop::CameraTypeSetting gCameraTypeSetting;
-extern SMSCoop::PlayerTypeSetting gPlayer1TypeSetting;
-extern SMSCoop::PlayerTypeSetting gPlayer2TypeSetting;
 
 namespace SMSCoop {
 	typedef struct {
@@ -40,12 +37,6 @@ namespace SMSCoop {
 		s16 cameraHorizontalAngle;
 	} SpawnData;
 	static SpawnData spawnData[MARIO_COUNT];
-
-	typedef struct {
-		MActorAnmData* marioAnmData;
-		MActor* marioMActor;
-	} MarioExtModelData;
-	static MarioExtModelData modelData[MARIO_COUNT];
 
 	static u8 loadedMarios = 0;
 	static TMario* marios[MARIO_COUNT];
@@ -111,7 +102,7 @@ namespace SMSCoop {
 	}
 
 	int isSingleCameraLevel() {
-		if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isPvpLevel()) return true;
+		if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE) return true;
 		return isSingleplayerLevel();
 	}
 	
@@ -150,66 +141,12 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029d7d8, 0, 0, 0), TMarioStrCmp_Override);
 
-	void setSkinForPlayer(int player, int skinType) {
-		if(skinType == PlayerTypeSetting::MARIO) {
-			SMSCoop::setSkinForPlayer(player, "/data/mario.arc", false, 0, 0);
-		}
-		else if(skinType == PlayerTypeSetting::LUIGI) {
-			SMSCoop::setSkinForPlayer(player, "/data/luigi.arc", false, 1, 1);
-		}
-		else if(skinType == PlayerTypeSetting::SHADOW_MARIO) {
-			SMSCoop::setSkinForPlayer(player, "/data/kagemario.arc", true, 2, 0);
-		}
-	}
-
 	void setPlayerSkin(TMarDirector* director) {
-		if(!isPvpLevel()) {
-			setSkinForPlayer(0, gPlayer1TypeSetting.getInt());
-			setSkinForPlayer(1, gPlayer2TypeSetting.getInt());
-		} else {
-			setSkinForPlayer(0, PlayerTypeSetting::MARIO);
-			setSkinForPlayer(1, PlayerTypeSetting::LUIGI);
-		}
 		marioIsSet = false;
 		isCameraCaptured = false;
 		focusedMario = 0;
 	}
 	 
-	//
-	//void* setModelSizeForMario(u32 size) {
-	//	OSReport("HMMM %X \n", 0x1c);
-	//	return __nwa__FUl(0x1c);
-	//}
-	//SMS_PATCH_BL(SMS_PORT_REGION(0x80246720, 0, 0, 0), setModelSizeForMario);
-	//void try_make_sdl_model_for_mario(J3DModel* model, J3DModelData* modelData, u32 unk1, u32 unk2) {
-	//	
-	//	//replace__14TScreenTextureFP12J3DModelDataPCc(*(u32**)0x8040e0bc, modelData, "H_kagemario_dummy");
-
-	//	void* sdlModelData = __nwa__FUl(0x1c);
-	//	__ct__12SDLModelDataFP12J3DModelData(sdlModelData, modelData);
-
-	//	//__ct__8SDLModelFP12SDLModelDataUlUl(model, sdlModelData, unk1, unk2);
-	//	/*testAnimData = new MActorAnmData();
-	//	init__13MActorAnmDataFPCcPPCc(testAnimData, "/mario/btk");
-	//	testing = new MActor(testAnimData);*/
-	//	////testing->setModel(mario->mModelData->mModel, 0);
-
-	//	//void* resource = JKRFileLoader::getGlbResource("/mario/default.bmd");
-	//	//if(resource != nullptr) {
-	//	//	J3DModelData* data = J3DModelLoaderDataBase::load(resource, 0);
-	//	//	testModel = new J3DModel(data, 0, 1);
-	//		//testing->setModel(model, 0);
-	//}
-	//SMS_PATCH_BL(SMS_PORT_REGION(0x8024673c, 0, 0, 0), try_make_sdl_model_for_mario);
-
-	// We need to disable goop texture hiding on animated mario...
-	// TODO: If generalized, then this should probably be improved.
-	void finalDrawInitialize_override(TMario* mario) {
-		if(!hasCustomAnimations(getPlayerId(mario))) {
-			mario->finalDrawInitialize();
-		}
-	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x80276bb0, 0, 0, 0), finalDrawInitialize_override);
 
 	// Description: We hook into the load to get a pointer to TViewObjPtrListT to be able to add viewObjs manually
 	JDrama::TViewObjPtrListT<THitActor,JDrama::TViewObj>* mario_viewObjPtrList = 0;
@@ -219,8 +156,6 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80223548, 0, 0, 0), JDrama_TViewObjPtrListT_load);
 
-	// Allow animated texture
-	SMS_WRITE_32(SMS_PORT_REGION(0x802465e8, 0, 0, 0), 0x3c801130);
 	/*
 	void TMario_initModel_override(TMario* mario) {
 		if(getPlayerId(mario) == 1) {
@@ -271,54 +206,6 @@ namespace SMSCoop {
 					mario->mKeyCode = JDrama::TNameRef::calcKeyCode("Luigi");
 				}
 
-				if(hasCustomAnimations(i)) {
-				
-					//OSReport("Loading custom animations for player %X\n", i);
-				
-					
-					modelData[i].marioAnmData = new MActorAnmData();
-					init__13MActorAnmDataFPCcPPCc(modelData[i].marioAnmData, "mario/btk");
-					MActor* marioMActor = new MActor(modelData[i].marioAnmData);
-					//marioMActor->unlockDLIfNeed();
-					//marioMActor->initDL();
-					marioMActor->setModel(mario->mModelData->mModel, 0);
-
-					modelData[i].marioMActor = marioMActor; 
-					//testing = testingkeeper->createAndRegister(modelData, 0);
-					//testing->setModel(testModel, 0x0);
-
-					//OSReport("Exists %X\n", marioMActor->checkAnmFileExist("animation", 4));
-					marioMActor->setBtk("animation");
-
-					f32 framerate = SMSGetAnmFrameRate();
-					J3DFrameCtrl* ctrl = marioMActor->getFrameCtrl(4);
-					ctrl->mFrameRate = framerate;
-					ctrl->mAnimState = J3DFrameCtrl::LOOP;
-
-					//marioMActor->setLightType(3);
-
-					//SMS_MakeDLAndLock(testing->mModel);
-					//OSReport("Animation Id %X %X\n", testing->mBtkInfo, testing->mBtkInfo->mFrameCtrl);
-			////testing->setModel(mario->mModelData->mModel, 0);
-
-						//replace__14TScreenTextureFP12J3DModelDataPCc(*(u32**)0x8040e0bc, data, "H_kagemario_dummy");
-						/*
-					for(u32 i = 0; i < testing->mModel->mModelData->mJointNum; ++i) {
-						SMS_InitPacket_Fog__FP8J3DModelUs(testing->mModel, i & 0xffff);
-					}*/
-					/*	replace__14TScreenTextureFP12J3DModelDataPCc(getScreenTextureForPlayer(1), mario->mBodyModelData, "H_kagemario_dummy");*/
-				/*		replace__14TScreenTextureFP12J3DModelDataPCc(getScreenTextureForPlayer(1), mario->mBodyModelData, "H_kagemario_indwp4n_ia");*/
-						replace__14TScreenTextureFP12J3DModelDataPCc(*(u32**)0x8040e0bc, mario->mBodyModelData, "H_kagemario_dummy");
-						/*replace__14TScreenTextureFP12J3DModelDataPCc(getScreenTextureForPlayer(1), testing->mModel->mModelData, "H_kagemario_dummy");*/
-					//}
-
-						
-					//testing->setBtk("animation");
-
-					//OSReport("HMMM %X %X \n", (u32)testAnimData, (u32)testing);
-					//OSReport("Custom animation actor finished\n");
-				}
-
 				mario_viewObjPtrList->mViewObjList.push_back(mario);
 			}
 
@@ -354,22 +241,6 @@ namespace SMSCoop {
 			mario->setGamePad(app->mGamePads[loadedMarios]);
 			mario->mController = app->mGamePads[loadedMarios];
 			
-		}
-
-		
-		int moveType = getMoveType(loadedMarios);
-
-		if(moveType == 1) {
-			mario->mJumpParams.mRotateJumpForceY.set( 70 * 1.2);
-			mario->mJumpParams.mSecJumpForce.set(52 * 1.2);
-			mario->mJumpParams.mUltraJumpForce.set(75 * 1.2);
-		}
-		else if(moveType == 2) {
-			mario->mRunParams.mMaxSpeed.set(32.0f * 2.0);
-			mario->mJumpParams.mJumpSpeedBrake.set(1.0);
-			mario->mSwimParams.mMoveSp.set(0.5);
-			mario->mHoverParams.mRotSp.set(200);
-			mario->mHoverParams.mBrake.set(0.99);
 		}
 
 		setActiveMarioArchive(loadedMarios);
@@ -519,25 +390,8 @@ namespace SMSCoop {
 			}
 
 		}
-
-		if(hasCustomAnimations(playerId)) {
-			//OSReport("Updating mactor for %X\n", playerId);
-			MActor* marioMActor = modelData[playerId].marioMActor;
-			if(param_1 & 0x1) {
-				marioMActor->frameUpdate();
-			}
-
-			if((param_1 & 0x200) == 0) {
-				perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
-			} else {
-				marioMActor->entryIn();
-				perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
-				marioMActor->entryOut();
-			}
-		} else {
-			perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
-		}
 		
+		perform__6TMarioFUlPQ26JDrama9TGraphics(mario, param_1, param_2);
 
 		SimulateEscapeHeld(mario);
 		
@@ -569,7 +423,7 @@ namespace SMSCoop {
 
 
 	bool SMS_isMultiPlayerMap_override() {
-		return gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isSingleplayerLevel() && !isPvpLevel() && !isCameraCaptured;
+		return gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isSingleplayerLevel() && !isCameraCaptured;
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80021138, 0, 0, 0), SMS_isMultiPlayerMap_override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80025438, 0, 0, 0), SMS_isMultiPlayerMap_override);
@@ -584,7 +438,7 @@ namespace SMSCoop {
 		CPolarSubCamera* originalCamera = getCameraById(0);
 		marioIsSet = true;
 		for (int i = loadedMarios-1; i >= 0; i--) {
-			if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isPvpLevel()) {
+			if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE) {
 				TMario* mario = getMario(i);
 				const TVec3f* marioPos = &mario->mTranslation;
 				originalCamera->addMultiPlayer(marioPos, marioPos->y, marioPos->z);
@@ -705,10 +559,6 @@ namespace SMSCoop {
 	void loserExecOverride(TMario* mario) {
 		if(isShineGot()) return;
 		
-		if(isPvpLevel()) {
-			onDeathPvp();
-		}
-
 		int lives = TFlagManager::smInstance->getFlag(MarioFlagId_Lives);
 		if(lives <= 0) {
 			for(int i = 0; i < loadedMarios; ++i) {

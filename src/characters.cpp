@@ -23,38 +23,77 @@
 
 namespace SMSCoop {
 
+    struct CharacterInfo {
+        const char* archivePath = "/data/mario.arc";
+        const char* uiIconPath = "/game_6/timg/mario_icon.bti";
+        const char* uiTextPath = "/game_6/timg/mario_text.bti";
+        const char* guideIcon = "/guide/timg/guide_mario.bti";
+        const char* guideCursor1 = "/guide/timg/guide_cursor_1.bti";
+        const char* guideCursor2 = "/guide/timg/guide_cursor_2.bti";
+    };
+
     static void* sCharacterArcs[2];
-    static char const* skins[2] = {"/data/mario.arc", "/data/mario.arc"};
-    static bool customAnimations[2] = {false, false};
-    static int customVoiceTypes[2] = {0, 0};
-    static int customMovesTypes[2] = {0, 0};
+    static CharacterInfo infos[2];
     void* arcBufMario;
 
-    void setSkinForPlayer(int id, char const* path, bool customAnimation, int voiceType, int moveType) {
+    void setSkinForPlayer(
+        int id,
+        char const* archivePath = "/data/mario.arc",
+        char const* uiIconPath = "/game_6/timg/mario_icon.bti",
+        char const* uiTextPath = "/game_6/timg/mario_text.bti",
+        char const* guideIcon = "/guide/timg/guide_mario.bti",
+        char const* guideCursor1 = "/guide/timg/guide_cursor_1.bti",
+        char const* guideCursor2 = "/guide/timg/guide_cursor_2.bti"
+    ) {
         if(id < 0 || id >= 2) {
             OSReport("Tried to set player skin outside max player bounds of 2\n");
         }
-        skins[id] = path;
-        customAnimations[id] = customAnimation;
-        OSReport("Setting voice for player %X %X\n", id, voiceType);
-        customVoiceTypes[id] = voiceType;
-        customMovesTypes[id] = moveType;
+        infos[id].archivePath = archivePath;
+        infos[id].uiIconPath = uiIconPath;
+        infos[id].uiTextPath = uiTextPath;
+        infos[id].guideIcon = guideIcon;
+        infos[id].guideCursor1 = guideCursor1;
+        infos[id].guideCursor2 = guideCursor2;
     }
+
+    const char* getUiIconPath(int id) {
+        if(id < 0 || id >= 2) {
+            OSReport("Tried to get ui icon path, outside max bounds\n");
+        }
+        return infos[id].uiIconPath;
+    }
+    
+    const char* getUiTextPath(int id) {
+        if(id < 0 || id >= 2) {
+            OSReport("Tried to get ui text path, outside max bounds\n");
+        }
+        return infos[id].uiTextPath;
+    }
+    
+    const char* getGuideIcon(int id) {
+        if(id < 0 || id >= 2) {
+            OSReport("Tried to get guide icon path, outside max bounds\n");
+        }
+        return infos[id].guideIcon;
+    }
+
+    const char* getGuideCursor1(int id) {
+        if(id < 0 || id >= 2) {
+            OSReport("Tried to get guide cursor 1 path, outside max bounds\n");
+        }
+        return infos[id].guideCursor1;
+    }
+
+    const char* getGuideCursor2(int id) {
+        if(id < 0 || id >= 2) {
+            OSReport("Tried to get guide cursor 2 path, outside max bounds\n");
+        }
+        return infos[id].guideCursor2;
+    }
+
 	void unmountActiveMarioArchive() {
         JKRMemArchive *archive = reinterpret_cast<JKRMemArchive *>(JKRFileLoader::getVolume("mario"));
         archive->unmountFixed();
-    }
-
-    bool hasCustomAnimations(int id) {
-        return customAnimations[id];
-    }
-
-    int getVoiceType(int id) {
-        return customVoiceTypes[id];
-    }
-
-    int getMoveType(int id) {
-        return customMovesTypes[id];
     }
 
     void setActiveMarioArchive(int id) {
@@ -74,23 +113,21 @@ namespace SMSCoop {
         void* marioArchive = SMSLoadArchive("/data/mario.arc", nullptr, 0, nullptr);
         for(int i = 0; i < 2; ++i) {
             sCharacterArcs[i] = nullptr;
-            if(strcmp(skins[i], "/data/mario.arc") == 0) {
-                OSReport("Loading default mario skin %s\n", skins[i]);
+            if(strcmp(infos[i].archivePath, "/data/mario.arc") == 0) {
+                OSReport("Loading default mario skin %s\n", infos[i].archivePath);
                 sCharacterArcs[i]= marioArchive;
                 continue;
             }
-            OSReport("Loading skin %s\n", skins[i]);
+            OSReport("Loading skin %s\n", infos[i].archivePath);
         
             // Load skins (if exists)
-            void* playerArchive = SMSLoadArchive(skins[i], nullptr, 0, nullptr);
+            void* playerArchive = SMSLoadArchive(infos[i].archivePath, nullptr, 0, nullptr);
             if(playerArchive != 0) {
                 sCharacterArcs[i]= playerArchive;
             } else {
                 sCharacterArcs[i]= marioArchive;
             }
         }
-
-    
 
         arcBufMario = sCharacterArcs[0];
 
@@ -99,7 +136,6 @@ namespace SMSCoop {
             archive = new JKRMemArchive(arcBufMario, 0, UNK_0);
 
     }
-
     static void getGlobalOrLocalResFmt(char *dst, size_t size, const char *local_path,
                                     const char *specifier, const char *global_path) {
         auto* first_file = JKRFileLoader::findFirstFile("/common/mario/01_waterboost");

@@ -7,17 +7,14 @@
 #include "camera.hxx"
 #include "splitscreen.hxx"
 #include "settings.hxx"
-#include "pvp.hxx"
-
-extern SMSCoop::PlayerTypeSetting gPlayer1TypeSetting;
-extern SMSCoop::PlayerTypeSetting gPlayer2TypeSetting;
+#include "characters.hxx"
 
 namespace SMSCoop {
 	
 	TGCConsole2* consoles[2];
 	bool gIsInGuide = false;
 
-	JUTTexture* guidePictures[7];
+	JUTTexture* guidePictures[6];
 	
 	TGCConsole2* getConsoleForPlayer(int id) {
 		return consoles[1 - id];
@@ -43,76 +40,29 @@ namespace SMSCoop {
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029db48, 0, 0, 0), TGCConsole2_constructor);
 
-	const char* getSkinNameForPlayer(int i) {
-		int playerType = gPlayer1TypeSetting.getInt();
-		if(i == 1) playerType = gPlayer2TypeSetting.getInt();
-
-		if(isPvpLevel() && i == 0) return "mario";
-		if(isPvpLevel() && i == 1) return "luigi";
-		
-		if(playerType == PlayerTypeSetting::LUIGI) return "luigi";
-		if(playerType == PlayerTypeSetting::SHADOW_MARIO) return "kagemario";
-		return "mario";
-	}
-
 	// Load all instances of TGCConsole2
 	void TGCConsole2_load(TGCConsole2* tgcConsole2, JSUMemoryInputStream* param_1) {
-		char buffer[64];
-
 		bool isSingleCamera = isSingleplayerLevel();
 
 		for(int i = 0; i < 2; ++i) {
 			load__11TGCConsole2FR20JSUMemoryInputStream(consoles[i], param_1);
-
-			if(isSingleCamera) {
-				const char* type = getSkinNameForPlayer(0);
-
-				{
-					J2DPicture* marioIcon =
-						reinterpret_cast<J2DPicture*>(consoles[i]->mMainScreen->search('m_ic'));
-					snprintf(buffer, 64, "/game_6/timg/%s_icon.bti", type);
-
-					auto* timg = reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(buffer));
-					if (timg)
-						marioIcon->changeTexture(timg, 0);
-				}
-
-				{
-					J2DPicture *marioName =
-						reinterpret_cast<J2DPicture *>(consoles[i]->mMainScreen->search('m_tx'));
-
-					snprintf(buffer, 64, "/game_6/timg/%s_text.bti", type);
-
-					auto *timg = reinterpret_cast<ResTIMG *>(JKRFileLoader::getGlbResource(buffer));
-					if (timg)
-						marioName->changeTexture(timg, 0);
-				}
-			} else {
-				const char* type1 = getSkinNameForPlayer(0);
-				const char* type2 = getSkinNameForPlayer(1);
 			
-				{
-					J2DPicture* marioIcon =
-						reinterpret_cast<J2DPicture*>(consoles[i]->mMainScreen->search('m_ic'));
-					snprintf(buffer, 64, "/game_6/timg/%s_%s_icon.bti", type1, type2);
+			{
+				J2DPicture* marioIcon =
+					reinterpret_cast<J2DPicture*>(consoles[i]->mMainScreen->search('m_ic'));
 
-					auto* timg = reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(buffer));
-					if (timg) {
-						marioIcon->changeTexture(timg, 0);
-					}
-				}
+				auto* timg = reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getUiIconPath(i)));
+				if (timg)
+					marioIcon->changeTexture(timg, 0);
+			}
 
-				{
-					J2DPicture *marioName =
-						reinterpret_cast<J2DPicture *>(consoles[i]->mMainScreen->search('m_tx'));
+			{
+				J2DPicture *marioName =
+					reinterpret_cast<J2DPicture *>(consoles[i]->mMainScreen->search('m_tx'));
 
-					snprintf(buffer, 64, "/game_6/timg/%s_%s_text.bti", type1, type2);
-
-					auto *timg = reinterpret_cast<ResTIMG *>(JKRFileLoader::getGlbResource(buffer));
-					if (timg) {
-						marioName->changeTexture(timg, 0);
-					}
-				}
+				auto *timg = reinterpret_cast<ResTIMG *>(JKRFileLoader::getGlbResource(getUiTextPath(i)));
+				if (timg)
+					marioName->changeTexture(timg, 0);
 			}
 		}
 	}
@@ -172,11 +122,8 @@ namespace SMSCoop {
 			// Do not pause if airborn and not in water
 			if((attributes & 0x1000) == 0 && (mario->mState & 0x800) != 0) continue;
 			const JUTGamePad::CButton &buttons = mario->mController->mButtons;
-			if((buttons.mFrameInput & TMarioGamePad::Z) != 0 && !isPvpLevel()) {
+			if((buttons.mFrameInput & TMarioGamePad::Z) != 0) {
 				menuToOpen = 10;
-
-				int playerType = gPlayer1TypeSetting.getInt();
-				if(i == 1) playerType = gPlayer2TypeSetting.getInt();
 
 				TGuide* guide = director->mGuide;
 				J2DPicture* cursora =
@@ -184,42 +131,16 @@ namespace SMSCoop {
 
 				// Mario
 				u32 ids[10] = {'mi00', 'mi01', 'mi02', 'mi03', 'mi04', 'mi05', 'mi06', 'mi07', 'mi08', 'mi09'};
-				if(playerType == PlayerTypeSetting::MARIO) {
-					if(guidePictures[0]) {
-						for(int j = 0; j < 10; ++j) {
-							J2DPicture* marioIcon =
-								reinterpret_cast<J2DPicture*>(guide->mScreen->search(ids[j]));
-							marioIcon->mTextures[0] = guidePictures[0];
-						}
+				if(guidePictures[i * 3]) {
+					for(int j = 0; j < 10; ++j) {
+						J2DPicture* marioIcon =
+							reinterpret_cast<J2DPicture*>(guide->mScreen->search(ids[j]));
+						marioIcon->mTextures[0] = guidePictures[i * 3];
 					}
-
-					if(guidePictures[1]) cursora->mTextures[0] = guidePictures[1];
-					if(guidePictures[2]) cursora->mTextures[1] = guidePictures[2];
-				}
-				else if(playerType == PlayerTypeSetting::LUIGI) {
-					if(guidePictures[3]) {
-						OSReport("Luigi time \n");
-						for(int j = 0; j < 10; ++j) {
-							J2DPicture* marioIcon =
-								reinterpret_cast<J2DPicture*>(guide->mScreen->search(ids[j]));
-							marioIcon->mTextures[0] = guidePictures[3];
-						}
-					}
-					
-					if(guidePictures[1]) cursora->mTextures[0] = guidePictures[1];
-					if(guidePictures[2]) cursora->mTextures[1] = guidePictures[2];
-				} else if(playerType == PlayerTypeSetting::SHADOW_MARIO) {
-					if(guidePictures[4]) {
-						for(int j = 0; j < 10; ++j) {
-							J2DPicture* marioIcon =
-								reinterpret_cast<J2DPicture*>(guide->mScreen->search(ids[j]));
-							marioIcon->mTextures[0] = guidePictures[4];
-						}
-					}
-					if(guidePictures[5]) cursora->mTextures[0] = guidePictures[5];
-					if(guidePictures[6]) cursora->mTextures[1] = guidePictures[6];
 				}
 
+				if(guidePictures[i * 3 + 1]) cursora->mTextures[0] = guidePictures[i * 3 + 1];
+				if(guidePictures[i * 3 + 2]) cursora->mTextures[1] = guidePictures[i * 3 + 2];
 				pausingPlayer = i;
 				gIsInGuide = true;
 				break;
@@ -265,52 +186,35 @@ namespace SMSCoop {
 
 
 		*(TMarioGamePad**)(pauseMenu + 0x10c / 4) = director->mGamePads[0];
-		//*(u32*)&director->mGamePads[pausingPlayer]->mState = state;
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c0570, 0, 0, 0), (u32)(&TPauseMenu2_perform_override));
 
 
-	void TGuide_perform_override(u32* guide, u32 performFlags, JDrama::TGraphics* graphics) {
+	void TGuide_perform_override(TGuide* guide, u32 performFlags, JDrama::TGraphics* graphics) {
         TApplication *app      = &gpApplication;
         TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
 		director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
-		*(TMarioGamePad**)(guide + 0xc0 / 4) = director->mGamePads[pausingPlayer];
+		guide->_C0 = (u32)director->mGamePads[pausingPlayer];
 
 		perform__6TGuideFUlPQ26JDrama9TGraphics(guide, performFlags, graphics);
-
-
-		*(TMarioGamePad**)(guide + 0xc0 / 4) = director->mGamePads[0];
+		guide->_C0 = (u32)director->mGamePads[0];
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c1068, 0, 0, 0), (u32)(&TGuide_perform_override));
 
 	void TGuide_load_override(TGuide* guide, JSUMemoryInputStream* memStream) {
-		//guide->load(memStream);
-		
 		load__6TGuideFR20JSUMemoryInputStream(guide, memStream);
-		for(int i = 0; i < 7; ++i) {
+		for(int i = 0; i < 6; ++i) {
 			guidePictures[i] = new JUTTexture();
 		}
 		bool isSingleCamera = isSingleplayerLevel();
 
-		int player1Type = gPlayer1TypeSetting.getInt();
-		int player2Type = gPlayer2TypeSetting.getInt();
-		bool hasLuigi = player1Type == PlayerTypeSetting::LUIGI || player2Type == PlayerTypeSetting::LUIGI;
-		bool hasKageMario = player1Type == PlayerTypeSetting::SHADOW_MARIO || player2Type == PlayerTypeSetting::SHADOW_MARIO;
-			
-		guidePictures[0]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource("/guide/timg/guide_mario.bti")));
-		guidePictures[1]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource("/guide/timg/guide_cursor_1.bti")));
-		guidePictures[2]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource("/guide/timg/guide_cursor_2.bti")));
-		if(hasLuigi) {
-			guidePictures[3]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource("/guide/timg/guide_luigi.bti")));
-		}
-		if(hasKageMario) {
-			guidePictures[4]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource("/guide/timg/guide_kagemario.bti")));
-			guidePictures[5]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource("/guide/timg/guide_cursor_kagemario_1.bti")));
-			guidePictures[6]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource("/guide/timg/guide_cursor_kagemario_2.bti")));
-				
-		}
-
+		guidePictures[0]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideIcon(0))));
+		guidePictures[1]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor1(0))));
+		guidePictures[2]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor2(0))));
+		guidePictures[3]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideIcon(1))));
+		guidePictures[4]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor1(1))));
+		guidePictures[5]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor2(1))));
 
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c1058, 0, 0, 0), (u32)(&TGuide_load_override));

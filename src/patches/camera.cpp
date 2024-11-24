@@ -18,7 +18,6 @@
 #include "players.hxx"
 #include "splitscreen.hxx"
 #include "settings.hxx"
-#include "pvp.hxx"
 
 #define MARIO_COUNT 2
 extern SMSCoop::CameraTypeSetting gCameraTypeSetting;

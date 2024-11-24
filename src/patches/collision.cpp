@@ -10,7 +10,6 @@
 #include "players.hxx"
 #include "splitscreen.hxx"
 #include "camera.hxx"
-#include "pvp.hxx"
 
 namespace SMSCoop {
 	
@@ -101,9 +100,6 @@ namespace SMSCoop {
 					
 					TMario* collidingMario = (TMario*)getMario(i)->mCollidingObjs[j];
 					TMario* currentMario = getMario(i);
-					if(isPvpLevel()) {
-						touchPlayerPvp(currentMario, collidingMario);
-					}
 
 					if (mario->mSpeed.y < 0.0f) {
 						if (mario->mTranslation.y - MARIO_TRAMPLEHEIGHT > ((TMario*)mario->mCollidingObjs[j])->mTranslation.y){
