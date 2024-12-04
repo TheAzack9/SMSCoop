@@ -54,17 +54,5 @@ namespace SMSCoop {
     private:
         int mCameraType;
     };
-
-    class ShineGrabDistanceSetting final : public BetterSMS::Settings::BoolSetting {
-    public:
-    
-        ShineGrabDistanceSetting(const char *name) : BoolSetting(name, &mEnableShineGrabRange), mEnableShineGrabRange(true) {
-        }
-        ~ShineGrabDistanceSetting() override {}
-
-
-    private:
-        bool mEnableShineGrabRange;
-    };
     
 }

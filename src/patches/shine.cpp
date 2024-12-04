@@ -14,10 +14,8 @@
 #include "settings.hxx"
 #include "module.hxx"
 
-extern SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting;
 namespace SMSCoop {
 	
-	static int balloonTimer[2] = {0, 0};
 	u32 marioThatPickedShine = 0;
 	bool hasGottenShine = false;
 	bool isShineCutscene = false;
@@ -72,12 +70,6 @@ namespace SMSCoop {
 		bool isAnyInDemo = false;
 
 		for(int i = 0; i < getPlayerCount(); ++i) {
-			if(balloonTimer[i] > 0) {
-				balloonTimer[i]--;
-				if(balloonTimer[i] == 0) {
-					startDisappearBalloon__11TGCConsole2FUlb(getConsoleForPlayer(i), 93, true);
-				}
-			}
 
 			if(getMario(i)->mState == TMario::STATE_SHINE_C) {
 				isAnyMarioInShineAnimation = true;
@@ -114,20 +106,6 @@ namespace SMSCoop {
 	void TShine_touchPlayer_override(TMapObjBase* shine, THitActor* mario) {
 		//OSReport("Is shine Got %d, talking player %d address of shine got %d\n", isShineGot(), getTalkingPlayer(), hasGottenShine);
 		if(isShineGot() || isTalking()) return;
-
-		for(int i = 0; i < getPlayerCount(); ++i) {
-			TMario* cMario = getMario(i);
-			float dist = PSVECDistance((Vec*)&shine->mTranslation, (Vec*)&cMario->mTranslation);
-
-			if(dist > 3000 && (gShineGrabDistanceSetting.getBool())) {
-				// TODO
-				if(balloonTimer[i] <= 0) {
-					startAppearBalloon__11TGCConsole2FUlb(getConsoleForPlayer(i), 93, false);
-					balloonTimer[i] = 60 * 5; // about 5 seconds
-				}
-				return;
-			}
-		}
 
 		touchPlayer__6TShineFP9THitActor(shine, mario);
 	}

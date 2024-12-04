@@ -328,7 +328,6 @@ const u8 gSaveIcon[] = { 0x0 };
 Settings::SettingsGroup gSettingsGroup(1, 0, Settings::Priority::GAME);
 
 SMSCoop::CameraTypeSetting gCameraTypeSetting("Camera type");
-SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting("Max shine grab distance");
 
 static BetterSMS::ModuleInfo sModuleInfo{"Mario Sunshine Coop", 2, 0, &gSettingsGroup};
 
@@ -341,7 +340,6 @@ static void initModule() {
 
     OSReport("Initializing Coop Module...\n");
     gSettingsGroup.addSetting(&gCameraTypeSetting);
-    gSettingsGroup.addSetting(&gShineGrabDistanceSetting);
 
     {
         auto &saveInfo        = gSettingsGroup.getSaveInfo();
