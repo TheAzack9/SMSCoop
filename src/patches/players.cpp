@@ -109,6 +109,7 @@ namespace SMSCoop {
 
 		return false;
 	}
+	
 
 	int isSingleCameraLevel() {
 		if(gCameraTypeSetting.getInt() == CameraTypeSetting::SINGLE && !isPvpLevel()) return true;

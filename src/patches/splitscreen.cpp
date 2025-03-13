@@ -163,6 +163,7 @@ namespace SMSCoop {
     // TODO: Rewrite this override EfbCtrlTex_perform instead and store a reference to the EfbCtrlTex that should
     // be changed to correct size. Checking the width is very hacky
     static void setTexCopySrcEfbTex(u16 left, u16 top, u16 wd, u16 ht) {
+        TMarDirector* director = (TMarDirector*)gpApplication.mDirector;
         if(!isSingleCameraLevel() && wd == 640) {
             const JDrama::TRect& viewport = SCREEN_VIEWPORTS[perspective + 2 * isHorizontal()];
             left = viewport.mX1;
@@ -279,7 +280,7 @@ namespace SMSCoop {
     // 0x20000000 = = (TMario)
     // 0x80000000 = = (TMario)
     // TODO: Add option for setting far clip multiplier to reduce lag
-    void testing(f32 fov, f32 aspect, f32 near, f32 far) {
+    /*void testing(f32 fov, f32 aspect, f32 near, f32 far) {
         if(isSingleCameraLevel()) {
             far *= 2.0;
         } else if(!BetterSMS::isGameEmulated()) {
@@ -294,7 +295,7 @@ namespace SMSCoop {
     SMS_PATCH_BL(SMS_PORT_REGION(0x8006931c, 0, 0, 0), testing);
     SMS_PATCH_BL(SMS_PORT_REGION(0x8007fd90, 0, 0, 0), testing);
     SMS_PATCH_BL(SMS_PORT_REGION(0x80135bc4, 0, 0, 0), testing);
-    SMS_PATCH_BL(SMS_PORT_REGION(0x8020a2a4, 0, 0, 0), testing);
+    SMS_PATCH_BL(SMS_PORT_REGION(0x8020a2a4, 0, 0, 0), testing);*/
 
     //int everyOther = 0;
     //u32 remove_every_other_particle(void* baseEmitter) {
@@ -526,7 +527,7 @@ namespace SMSCoop {
     SMS_WRITE_32(SMS_PORT_REGION(0x80193d34, 0, 0, 0), 0x38600080);
     SMS_WRITE_32(SMS_PORT_REGION(0x80193d38, 0, 0, 0), 0x38800080);
 
-
+    
     // Description: Before doing GXInvalidate, render other players perspective
     static void processGXInvalidateTexAll() { 
         //OSReport("---------------------\n");
@@ -540,7 +541,6 @@ namespace SMSCoop {
         //    //GXCopyDisp(tempTexture, GX_FALSE);
         //    GXCopyTex(tempTexture, GX_FALSE);
         //}
-
         GXInvalidateTexAll(); 
         if(!isSingleCameraLevel()) {
             

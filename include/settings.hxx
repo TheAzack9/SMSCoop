@@ -3,12 +3,6 @@
 
 
 namespace SMSCoop {
-    // This is bad, but i give up...
-    static const bool isMemoryExpanded2() {
-        return *((u32*)0x800000f0) == 0x04000000;
-    }
-
-    
 
     class PlayerTypeSetting final : public BetterSMS::Settings::IntSetting {
     public:
@@ -17,7 +11,7 @@ namespace SMSCoop {
     
         PlayerTypeSetting(const char *name, int playerId) : IntSetting(name, &mPlayerType), mPlayerType(playerId) {
             mValueRange = {0, 3, 1};
-            mIsUserEditable = playerId == 1 || isMemoryExpanded2();
+            mIsUserEditable = true;
             mPlayerId = playerId;
             mHidden = false;
         }
@@ -37,33 +31,6 @@ namespace SMSCoop {
                 break;
             }
         }
-        void load(JSUMemoryInputStream &in) override {
-
-            int x;
-            in.read(&x, 4);
-
-            // Reset value if corrupt
-            if (x < mValueRange.mStart || x > mValueRange.mStop)
-                x = mValueRange.mStart;
-
-            // Reset value if no longer editable
-            if(!mIsUserEditable) x = mValueRange.mStart;
-
-            setInt(x);
-        }
-
-        void changeCamera(int cameraType) {
-            if(mPlayerId == 0) {
-                if(cameraType == 0) {
-                    mIsUserEditable = true;
-                } else {
-                    mIsUserEditable = isMemoryExpanded2();
-                    setInt(Kind::MARIO);
-                }
-            } else {
-                mIsUserEditable = cameraType != 0;
-            }
-        }
 
     private:
         int mPlayerType;
@@ -76,25 +43,11 @@ namespace SMSCoop {
         enum Kind { REGULAR, VERTICAL, HORIZONTAL, SINGLE };
 
     
-        CameraTypeSetting(const char *name, PlayerTypeSetting* player1Setting, PlayerTypeSetting* player2Setting) : IntSetting(name, &mCameraType), mCameraType(VERTICAL) {
+        CameraTypeSetting(const char *name) : IntSetting(name, &mCameraType), mCameraType(VERTICAL) {
             mValueRange = {0, 3, 1};
-            mPlayer1Setting = player1Setting;
-            mPlayer2Setting = player2Setting;
         }
         ~CameraTypeSetting() override {}
         
-        void prevValue() override { 
-            IntSetting::prevValue();
-            mPlayer1Setting->changeCamera(getInt());
-            mPlayer2Setting->changeCamera(getInt());
-            
-        }
-        void nextValue() override { 
-            IntSetting::nextValue();
-            mPlayer1Setting->changeCamera(getInt());
-            mPlayer2Setting->changeCamera(getInt());
-        }
-
         void load(JSUMemoryInputStream &in) override {
 
             int x;
@@ -105,8 +58,6 @@ namespace SMSCoop {
                 x = mValueRange.mStart;
 
             setInt(x);
-            mPlayer1Setting->changeCamera(x);
-            mPlayer2Setting->changeCamera(getInt());
         }
 
         void getValueName(char *dst) const override {
@@ -129,8 +80,6 @@ namespace SMSCoop {
 
     private:
         int mCameraType;
-        PlayerTypeSetting* mPlayer1Setting;
-        PlayerTypeSetting* mPlayer2Setting;
     };
 
     class ShineGrabDistanceSetting final : public BetterSMS::Settings::BoolSetting {

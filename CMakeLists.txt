@@ -40,6 +40,7 @@ add_custom_command(
 )
 
 
+
 add_custom_command(
     TARGET ${PROJECT_NAME}.kxe
     COMMAND "C:/Program Files/Dolphin/Dolphin.exe" ARGS --logger --debugger --exec "C:/Users/robgr/OneDrive/Documents/Projects/Mario_sunshine/speedrunning/mario sunshine/iso/better_sunshine_2 - Copy (3)/root/sys/main.dol"

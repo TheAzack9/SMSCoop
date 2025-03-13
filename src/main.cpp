@@ -330,7 +330,7 @@ Settings::SettingsGroup gSettingsGroup(1, 0, Settings::Priority::GAME);
 
 SMSCoop::PlayerTypeSetting gPlayer1TypeSetting("Player 1 character", 0);
 SMSCoop::PlayerTypeSetting gPlayer2TypeSetting("Player 2 character", 1);
-SMSCoop::CameraTypeSetting gCameraTypeSetting("Camera type", &gPlayer1TypeSetting, &gPlayer2TypeSetting);
+SMSCoop::CameraTypeSetting gCameraTypeSetting("Camera type");
 SMSCoop::ShineGrabDistanceSetting gShineGrabDistanceSetting("Max shine grab distance");
 SMSCoop::SpeedrunSetting gSpeedrunSetting("Speedrun mode");
 
@@ -694,7 +694,7 @@ static void initModule() {
 
     //// Register callbacks
     
-    BetterSMS::Game::registerBootCallback("Coop_debug_mode", setDebug);
+    //BetterSMS::Game::registerBootCallback("Coop_debug_mode", setDebug);
     BetterSMS::Stage::registerInitCallback("SMSCoop_initCharacterArchivesCoop", SMSCoop::initCharacterArchives);
     BetterSMS::Stage::registerInitCallback("SMSCoop_talking_reset", SMSCoop::resetTalking);
     BetterSMS::Stage::registerInitCallback("SMSCoop_splitscreen_reset", SMSCoop::resetSplitScreen);
