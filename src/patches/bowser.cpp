@@ -13,7 +13,7 @@ namespace SMSCoop {
 	// Reason: Allow p2 to collide with platform separately from p1
 	void TBathtub_setupCollisions_Override(void* tBathtub) {
 		isBowserFight = true;
-		for (int i = getPlayerCount()-1; i >= 0; --i) {
+		for (int i = getLoadedPlayerCount()-1; i >= 0; --i) {
 			setActiveMario(i);
 			setupCollisions___8TBathtubFv(tBathtub);
 		}
@@ -45,13 +45,13 @@ namespace SMSCoop {
 		if((param_1 & 1) != 0) {
 			int ap = getActiveViewport();
 			int activePlayerViewport = activePlayer / 4;
-			for(int i = 0; i < getPlayerCount(); ++i) {
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 				if(i == activePlayerViewport) continue;
 				setActiveMario(i);
 				perform__17TBathWaterManagerFUlPQ26JDrama9TGraphics(tBathwaterManager, param_1, tGraphics);
 			}
 			setActiveMario(activePlayerViewport);
-			activePlayer = (activePlayer + 1) % (getPlayerCount() * 4);
+			activePlayer = (activePlayer + 1) % (getLoadedPlayerCount() * 4);
 			perform__17TBathWaterManagerFUlPQ26JDrama9TGraphics(tBathwaterManager, param_1, tGraphics);
 			// Ensure that primary mario is set correct again
 		} else {

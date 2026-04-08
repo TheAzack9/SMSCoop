@@ -16,7 +16,7 @@ namespace SMSCoop {
 
 	// TODO: This seems weird and should probably be fixed...
 	void TMapWireManager_loadAfter(void* wireManager) {
-		int playerCount = getPlayerCount();
+		int playerCount = getLoadedPlayerCount();
 		for(int i = 0; i < playerCount; ++i) {
 			int activeMario = 1-i;
 
@@ -38,7 +38,7 @@ namespace SMSCoop {
 	TMario* currentMario = nullptr;
 	//u32 TCubeManagerBase_getInCubeNo(TCubeManagerBase* cubeManagerBase, Vec& marioPos) {
 
-	//	for(int i = 0; i < getPlayerCount(); ++i) {
+	//	for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 	//		TMario* mario = getMarioById(i);
 	//		u32 result = cubeManagerBase->getInCubeNo((Vec&)mario->mTranslation);
 	//		if(result != 0xffffffff) {
@@ -75,7 +75,7 @@ namespace SMSCoop {
 	
 	int TMario_receiveMessage_stickToWire(TMario* mario, THitActor* wire, u32 msg) {
 
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			if(getMario(i)->mHolder == wire) return 0;
 		}
 		return mario->receiveMessage(wire, msg);

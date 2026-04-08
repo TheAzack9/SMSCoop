@@ -504,9 +504,9 @@ namespace SMSCoop {
 
     // Set reduce output texture of mirror draw pass to 128x128 (from 256x256)
     // Saves a lot of memory + removes black box that appears because of render pass...
-    SMS_WRITE_32(SMS_PORT_REGION(0x80193db8, 0, 0, 0), 0x38a00080);
-    SMS_WRITE_32(SMS_PORT_REGION(0x80193d34, 0, 0, 0), 0x38600080);
-    SMS_WRITE_32(SMS_PORT_REGION(0x80193d38, 0, 0, 0), 0x38800080);
+    //SMS_WRITE_32(SMS_PORT_REGION(0x80193db8, 0, 0, 0), 0x38a00080);
+    //SMS_WRITE_32(SMS_PORT_REGION(0x80193d34, 0, 0, 0), 0x38600080);
+    //SMS_WRITE_32(SMS_PORT_REGION(0x80193d38, 0, 0, 0), 0x38800080);
 
 
     // Description: Before doing GXInvalidate, render other players perspective
@@ -834,7 +834,7 @@ namespace SMSCoop {
  //       //currentSyncDrawMarioId = getPlayerId(mario);
  //       //mario->mAttributes._04 |= 1;
 
- //       for(int i = 0; i < getPlayerCount(); ++i) {
+ //       for(int i = 0; i < getLoadedPlayerCount(); ++i) {
  //           //drawSyncCallback__6TMarioFUs(getMario(i), flag);
  //       }
 

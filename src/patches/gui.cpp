@@ -46,7 +46,7 @@ namespace SMSCoop {
 
 		for(int i = 0; i < 2; ++i) {
 			load__11TGCConsole2FR20JSUMemoryInputStream(consoles[i], param_1);
-			
+			/*
 			{
 				J2DPicture* marioIcon =
 					reinterpret_cast<J2DPicture*>(consoles[i]->mMainScreen->search('m_ic'));
@@ -63,7 +63,7 @@ namespace SMSCoop {
 				auto *timg = reinterpret_cast<ResTIMG *>(JKRFileLoader::getGlbResource(getUiTextPath(i)));
 				if (timg)
 					marioName->changeTexture(timg, 0);
-			}
+			}*/
 		}
 	}
 	// Override vtable
@@ -85,7 +85,7 @@ namespace SMSCoop {
 
 		// We still need to update ui for other players for animations to play correctly
 		// param_1 & 0x8 = drawing, so we remove that flag
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			if(i == p) continue;
 			setActiveMario(i);
 			setCamera(i);
@@ -115,36 +115,36 @@ namespace SMSCoop {
 
 		int menuToOpen = 0;
 
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			TMario* mario = getMario(i);
 			u32 attributes = *(u32*)&mario->mAttributes;
 
 			// Do not pause if airborn and not in water
 			if((attributes & 0x1000) == 0 && (mario->mState & 0x800) != 0) continue;
 			const JUTGamePad::CButton &buttons = mario->mController->mButtons;
-			if((buttons.mFrameInput & TMarioGamePad::Z) != 0) {
-				menuToOpen = 10;
+			//if((buttons.mFrameInput & TMarioGamePad::Z) != 0) {
+			//	menuToOpen = 10;
 
-				TGuide* guide = director->mGuide;
-				J2DPicture* cursora =
-					reinterpret_cast<J2DPicture*>(guide->mScreen->search('cu_a'));
+			//	TGuide* guide = director->mGuide;
+			//	J2DPicture* cursora =
+			//		reinterpret_cast<J2DPicture*>(guide->mScreen->search('cu_a'));
 
-				// Mario
-				u32 ids[10] = {'mi00', 'mi01', 'mi02', 'mi03', 'mi04', 'mi05', 'mi06', 'mi07', 'mi08', 'mi09'};
-				if(guidePictures[i * 3]) {
-					for(int j = 0; j < 10; ++j) {
-						J2DPicture* marioIcon =
-							reinterpret_cast<J2DPicture*>(guide->mScreen->search(ids[j]));
-						marioIcon->mTextures[0] = guidePictures[i * 3];
-					}
-				}
+			//	// Mario
+			//	u32 ids[10] = {'mi00', 'mi01', 'mi02', 'mi03', 'mi04', 'mi05', 'mi06', 'mi07', 'mi08', 'mi09'};
+			//	if(guidePictures[i * 3]) {
+			//		for(int j = 0; j < 10; ++j) {
+			//			J2DPicture* marioIcon =
+			//				reinterpret_cast<J2DPicture*>(guide->mScreen->search(ids[j]));
+			//			marioIcon->mTextures[0] = guidePictures[i * 3];
+			//		}
+			//	}
 
-				if(guidePictures[i * 3 + 1]) cursora->mTextures[0] = guidePictures[i * 3 + 1];
-				if(guidePictures[i * 3 + 2]) cursora->mTextures[1] = guidePictures[i * 3 + 2];
-				pausingPlayer = i;
-				gIsInGuide = true;
-				break;
-			}
+			//	if(guidePictures[i * 3 + 1]) cursora->mTextures[0] = guidePictures[i * 3 + 1];
+			//	if(guidePictures[i * 3 + 2]) cursora->mTextures[1] = guidePictures[i * 3 + 2];
+			//	pausingPlayer = i;
+			//	gIsInGuide = true;
+			//	break;
+			//}
 			if((buttons.mFrameInput & TMarioGamePad::START) != 0) {
 				menuToOpen = 5;
 				pausingPlayer = i;
@@ -167,58 +167,65 @@ namespace SMSCoop {
         TApplication *app      = &gpApplication;
         TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
-		//u32 state = *(u32*)&director->mGamePads[pausingPlayer]->mState;
-
-		director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
-		*(TMarioGamePad**)(pauseMenu + 0x10c / 4) = director->mGamePads[pausingPlayer];
-
-		// Tried to make pause only appear on person who paused's screen
-		//u32 overrideFlags = performFlags;
-		//if(getMario(pausingPlayer) != gpMarioOriginal) {
-		//	overrideFlags &= ~0x8;
-		//	if(performFlags & 0x8 && gpMarDirector->mCurState == 5) {
-		//		J2DFillBox(0, 0, 640, 640, {0, 0, 0, 150});
-		//	}
-		//}
-
-
+		TMarioGamePad* gamePad = *(TMarioGamePad**)((u32)pauseMenu + 0x10c);
+		if(director->mCurState == 5) {
+			director->mGamePads[pausingPlayer]->mState = 1;
+			*(TMarioGamePad**)((u32)pauseMenu + 0x10c) = director->mGamePads[pausingPlayer];
+		
+		
+		}
+		//OSReport("TestingASDASD %X %X\n", gpMarDirector->mGamePads[0]->mState, gpMarDirector->mGamePads[1]->mState);
+		
 		perform__11TPauseMenu2FUlPQ26JDrama9TGraphics(pauseMenu, performFlags, graphics);
+		
+		if(director->mCurState == 5) {
+			*(TMarioGamePad**)((u32)pauseMenu + 0x10c) = gamePad;
+			
+		}
 
-
-		*(TMarioGamePad**)(pauseMenu + 0x10c / 4) = director->mGamePads[0];
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c0570, 0, 0, 0), (u32)(&TPauseMenu2_perform_override));
 
 
-	void TGuide_perform_override(TGuide* guide, u32 performFlags, JDrama::TGraphics* graphics) {
-        TApplication *app      = &gpApplication;
-        TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
+	//void TGuide_perform_override(TGuide* guide, u32 performFlags, JDrama::TGraphics* graphics) {
+ //       TApplication *app      = &gpApplication;
+ //       TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
-		director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
-		guide->_C0 = (u32)director->mGamePads[pausingPlayer];
+	//	director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
+	//	guide->_C0 = (u32)director->mGamePads[pausingPlayer];
 
-		perform__6TGuideFUlPQ26JDrama9TGraphics(guide, performFlags, graphics);
-		guide->_C0 = (u32)director->mGamePads[0];
-	}
-	SMS_WRITE_32(SMS_PORT_REGION(0x803c1068, 0, 0, 0), (u32)(&TGuide_perform_override));
+	//	perform__6TGuideFUlPQ26JDrama9TGraphics(guide, performFlags, graphics);
+	//	guide->_C0 = (u32)director->mGamePads[0];
+	//}
+	//SMS_WRITE_32(SMS_PORT_REGION(0x803c1068, 0, 0, 0), (u32)(&TGuide_perform_override));
 
-	void TGuide_load_override(TGuide* guide, JSUMemoryInputStream* memStream) {
-		load__6TGuideFR20JSUMemoryInputStream(guide, memStream);
-		for(int i = 0; i < 6; ++i) {
-			guidePictures[i] = new JUTTexture();
-		}
-		bool isSingleCamera = isSingleplayerLevel();
+	//void TGuide_load_override(TGuide* guide, JSUMemoryInputStream* memStream) {
+	//	load__6TGuideFR20JSUMemoryInputStream(guide, memStream);
+	//	for(int i = 0; i < 6; ++i) {
+	//		guidePictures[i] = new JUTTexture();
+	//	}
+	//	bool isSingleCamera = isSingleplayerLevel();
 
-		guidePictures[0]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideIcon(0))));
-		guidePictures[1]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor1(0))));
-		guidePictures[2]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor2(0))));
-		guidePictures[3]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideIcon(1))));
-		guidePictures[4]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor1(1))));
-		guidePictures[5]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor2(1))));
+	//	guidePictures[0]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideIcon(0))));
+	//	guidePictures[1]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor1(0))));
+	//	guidePictures[2]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor2(0))));
+	//	guidePictures[3]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideIcon(1))));
+	//	guidePictures[4]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor1(1))));
+	//	guidePictures[5]->storeTIMG(reinterpret_cast<ResTIMG*>(JKRFileLoader::getGlbResource(getGuideCursor2(1))));
 
-	}
-	SMS_WRITE_32(SMS_PORT_REGION(0x803c1058, 0, 0, 0), (u32)(&TGuide_load_override));
+	//}
+	//SMS_WRITE_32(SMS_PORT_REGION(0x803c1058, 0, 0, 0), (u32)(&TGuide_load_override));
 
+	//// Unset save flag after
+	//void finishPause_Override(void* rumblMgr) {
+	//	//for(int i = 1; i < 4; ++i) {
+	//	//	gpMarDirector->mGamePads[i]->mState = gpMarDirector->mGamePads[0]->mState;
+	//	//}
+	//	finishPause__9RumbleMgrFv(rumblMgr);
+	//}
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x80298d18, 0, 0, 0), finishPause_Override);
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x80298d50, 0, 0, 0), finishPause_Override);
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x80298e08, 0, 0, 0), finishPause_Override);
 	
 	void TCardSave_perform_override(u32* cardSave, u32 performFlags, JDrama::TGraphics* graphics) {
 		if(isSingleCameraLevel()) {
@@ -229,12 +236,13 @@ namespace SMSCoop {
         TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
 
 		//u32 state = *(u32*)&director->mGamePads[pausingPlayer]->mState;
+		auto gamePad = *(TMarioGamePad**)(cardSave + 0x270 / 4);
 		
-		director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
+		//director->mGamePads[pausingPlayer]->mState = director->mGamePads[0]->mState;
 		*(TMarioGamePad**)(cardSave + 0x270 / 4) = director->mGamePads[pausingPlayer];
 
 		perform__9TCardSaveFUlPQ26JDrama9TGraphics(cardSave, performFlags, graphics);
-		*(TMarioGamePad**)(cardSave + 0x270 / 4) = director->mGamePads[0];
+		*(TMarioGamePad**)(cardSave + 0x270 / 4) = gamePad;
 		//*(u32*)&director->mGamePads[pausingPlayer]->mState = state;
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803c07c0, 0, 0, 0), (u32)(&TCardSave_perform_override));

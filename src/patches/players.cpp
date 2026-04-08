@@ -20,6 +20,7 @@
 #include "shine.hxx"
 #include "settings.hxx"
 #include "gui.hxx"
+#include "players.hxx"
 
 #define MARIO_COUNT 2
 
@@ -39,6 +40,7 @@ namespace SMSCoop {
 	static SpawnData spawnData[MARIO_COUNT];
 
 	static u8 loadedMarios = 0;
+	static u8 initializedMarios = 0;
 	static TMario* marios[MARIO_COUNT];
 	static bool isMarioCurrentlyLoadingViewObj = false;
 	static bool marioIsSet = false;
@@ -70,6 +72,11 @@ namespace SMSCoop {
 	void setFocusedPlayer(u8 playerId) {
 		isCameraCaptured = true;
 		focusedMario = playerId;
+    }
+
+    int getPlayerCount() { 
+		if(gCameraTypeSetting.getInt() == CameraTypeSetting::REGULAR) return 1;
+		return MARIO_COUNT;
 	}
 	
 	int isSingleplayerLevel() {
@@ -107,13 +114,13 @@ namespace SMSCoop {
 	}
 	
 	u8 getPlayerId(TMario* mario) {
-		for(u8 i = 0; i < loadedMarios; ++i) {
+		for(u8 i = 0; i < initializedMarios; ++i) {
 			if(mario == marios[i]) return i;
 		}
 		return 0;
 	}
 	
-	int getPlayerCount() {
+	int getLoadedPlayerCount() {
 		return loadedMarios;
 	}
 
@@ -135,6 +142,7 @@ namespace SMSCoop {
 		int isMarioCheck = strcmp(nameRef, "Mario");
 		if(isMarioCheck == 0) {
 			loadedMarios = 0;
+			initializedMarios = 0;
 			isMarioCurrentlyLoadingViewObj = true;
 		}
 		return isMarioCheck;
@@ -196,8 +204,8 @@ namespace SMSCoop {
 					mario = new TMario();
 				}
 				
-				
 				marios[i] = mario;
+				initializedMarios++;
 				mario->load(*memoryStream);
 				
 				
@@ -227,11 +235,15 @@ namespace SMSCoop {
 	// Description: Override load method for mario to set correct gamepad for p2 and load correct model
 	void loadMario(TMario* mario, JSUMemoryInputStream *input) {
 
-		load__Q26JDrama6TActorFR20JSUMemoryInputStream(mario, input);
+		//load__Q26JDrama6TActorFR20JSUMemoryInputStream(mario, input);
+		load__6TMarioFR20JSUMemoryInputStream(mario, input);
 	
 		TApplication *app      = &gpApplication;
 		TMarDirector *director = reinterpret_cast<TMarDirector *>(app->mDirector);
-		*((u32*)&director->mGamePads[loadedMarios]->mState) &= ~0x80000; // Player is not talking
+		if(loadedMarios != 0) {
+			director->mGamePads[loadedMarios]->mState = director->mGamePads[0]->mState; // Player is not talking
+			director->mGamePads[loadedMarios]->_E4 = director->mGamePads[0]->_E4; // Player is not talking
+		}
 
 		marios[loadedMarios] = mario;
 
@@ -243,11 +255,12 @@ namespace SMSCoop {
 			
 		}
 
-		setActiveMarioArchive(loadedMarios);
+		//setActiveMarioArchive(loadedMarios);
 		setActiveMario(getActiveViewport());
 		loadedMarios++;
 	}
-	SMS_PATCH_BL(SMS_PORT_REGION(0x80276BF0, 0, 0, 0), loadMario);
+	SMS_WRITE_32(SMS_PORT_REGION(0x803dd670, 0, 0, 0), (u32)&loadMario);
+	//SMS_PATCH_BL(SMS_PORT_REGION(0x80276BF0, 0, 0, 0), loadMario);
 
 	// Description: Override the controller update to ensure that correct mario is checked.
 	// Note: Certain things like the y-cam is for some reason tied directly to the controller update.
@@ -263,10 +276,12 @@ namespace SMSCoop {
 					setCamera(i);
 				}
 			}
+			// Enable movement
+			// TODO: Figure out where this is properly set... Might cause unexpected consequences
+			if((gpApplication.mGamePads[0]->mState & 1) == 0)
+				gamepad->mState &= ~1;
+			//gamepad->mState = gpApplication.mGamePads[0]->mState;
 		}
-		// Enable movement
-		// TODO: Figure out where this is properly set... Might cause unexpected consequences
-		gamepad->mState._06 = gpApplication.mGamePads[0]->mState._06;
 		updateMeaning__13TMarioGamePadFv(gamepad);
 		if(loadedMarios > 0) {
 			u8 currentId = getActiveViewport();
@@ -369,7 +384,7 @@ namespace SMSCoop {
 				CPolarSubCamera* originalCamera = getCameraById(0);
 				if(isDpadPressed) {
 					if(!isCameraCaptured) {
-						for(int i = 0; i < getPlayerCount(); ++i) {
+						for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 							TMario* m = getMario(i);
 							const TVec3f* marioPos = &m->mTranslation;
 							originalCamera->removeMultiPlayer(marioPos);
@@ -377,7 +392,7 @@ namespace SMSCoop {
 						isCameraCaptured = true;
 						focusedMario = playerId;
 					} else {
-						for(int i = 0; i < getPlayerCount(); ++i) {
+						for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 							TMario* m = getMario(i);
 							const TVec3f* marioPos = &m->mTranslation;
 							originalCamera->addMultiPlayer(marioPos, marioPos->y, marioPos->z);
@@ -498,8 +513,17 @@ namespace SMSCoop {
 	// Throw strength is based on a combination of airborn and how far the stick is pressed. 
 	// TODO: Research if this could be set as a player parameter instead of manually coded.
 	void OnMarioThrow(THitActor* thrownObject, TMario* mario, u32 message) {
+		bool isThrowingMario = false;
+		for (int i = 0; i < loadedMarios; i++){
+			TMario* thrownMario = marios[i];
+			if (thrownObject == (THitActor*)thrownMario){
+				isThrowingMario = true;
+			}
+		}
+		
+
 		float speed = mario->mControllerWork->mStickDist;
-		if(speed > 0.5f || mario->mState & TMario::State::STATE_AIRBORN) {
+		if(speed > 0.5f || mario->mState & TMario::State::STATE_AIRBORN || !isThrowingMario) {
 			thrownObject->receiveMessage(mario, 7);
 		} else {
 			thrownObject->receiveMessage(mario, 8);
@@ -578,7 +602,7 @@ namespace SMSCoop {
 		for(int i = 0; i < loadedMarios; ++i) {
 			TGCConsole2* console = getConsoleForPlayer(i);
 
-			//// Reset min timer time to 0 and make the startMario appear (if it isn't open)
+			// Reset min timer time to 0 and make the startMario appear (if it isn't open)
 			*(u16*)((u32)console + 0x3ae) = 0;
 			startAppearMario__11TGCConsole2Fb(console, true);
 
@@ -661,7 +685,7 @@ namespace SMSCoop {
 	// Warp all marios in case of warpMario sunscript
 	
 	void SMS_MarioWarpRequest(double param_1, TVec3f position) {
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			setActiveMario(i);
 			getMario(i)->warpRequest(position, param_1);
 

@@ -10,6 +10,7 @@ namespace SMSCoop {
 	u8 getFocusedPlayer();
 	void setFocusedPlayer(u8 playerId);
 	int getPlayerCount();
+	int getLoadedPlayerCount();
 	void setActiveMario(int id);
 	bool isMarioSet();
 	TMario* getMario(int id);

@@ -430,7 +430,7 @@ namespace SMSCoop {
 		}
 
 		if(!marioControllingRottenLeaf) {
-			for(int i = 0; i < getPlayerCount(); ++i) {
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 				TMario* mario = getMario(i);
 				setActiveMario(i);
 				if(marioIsOn__11TMapObjBaseCFv(leafBoatRotten) && mario->mFludd->isEmitting()) {
@@ -512,7 +512,7 @@ namespace SMSCoop {
 		}
 
 		if(!marioControllingLeaf) {
-			for(int i = 0; i < getPlayerCount(); ++i) {
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 				TMario* mario = getMario(i);
 				setActiveMario(i);
 				if(marioIsOn__11TMapObjBaseCFv(leafBoat) && mario->mFludd->isEmitting()) {
@@ -541,7 +541,7 @@ namespace SMSCoop {
 		}
 
 		if(!marioControllingBoat) {
-			for(int i = 0; i < getPlayerCount(); ++i) {
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 				TMario* mario = getMario(i);
 				setActiveMario(i);
 				if(marioIsOn__11TMapObjBaseCFv(muddyBoat) && mario->mFludd->isEmitting()) {
@@ -570,7 +570,7 @@ namespace SMSCoop {
 		}
 
 		if(!marioControllingSwing) {
-			for(int i = 0; i < getPlayerCount(); ++i) {
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 				TMario* mario = getMario(i);
 				setActiveMario(i);
 				if(marioIsOn__11TMapObjBaseCFv(swingBoard) && mario->mFludd->isEmitting()) {
@@ -1023,7 +1023,7 @@ namespace SMSCoop {
 		setActiveMario(merryGoRoundMarioCheck);
 		control__13TMerrygoroundFv(merrygoround);
 		setActiveMario(getActiveViewport());
-		merryGoRoundMarioCheck = (merryGoRoundMarioCheck + 1) % getPlayerCount();
+		merryGoRoundMarioCheck = (merryGoRoundMarioCheck + 1) % getLoadedPlayerCount();
 		
 	}
 	SMS_WRITE_32(SMS_PORT_REGION(0x803d0b38, 0, 0, 0), (u32)(&TMerrygoround_control_override));
@@ -1060,7 +1060,7 @@ namespace SMSCoop {
 	
 	// Fix moving blocks and things in secret
 	bool TRailMapObj_checkMarioRiding_override(TRailMapObj* mapObj) {
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			setActiveMario(i);
 			if(mapObj->checkMarioRiding()) {
 				setActiveMario(getActiveViewport());
@@ -1084,7 +1084,7 @@ namespace SMSCoop {
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80025c68, 0, 0, 0), TCameraBck_setFrame);
 
 	u32 Camera_JetCoasterDemoCallback(CPolarSubCamera* camera, u32 param_1) {
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			CPolarSubCamera* camera = getCameraById(i);
 			setCamera(i);
 			jetcoasterDemoCallbackCamera = i;
@@ -1212,7 +1212,7 @@ namespace SMSCoop {
 
 
 	void SMS_SendMessageToBothMario(THitActor* eel, u32 msg) {
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			getMario(i)->receiveMessage(eel, msg);
 		}
 	}
@@ -1224,7 +1224,7 @@ namespace SMSCoop {
 		bossEel = eelSpineBase->mTarget;
 		if(!eelFirstDie) {
 			SMS_SendMessageToBothMario((THitActor*)eelSpineBase->mTarget, 0xe);
-			for(int i = 0; i < getPlayerCount(); ++i) {
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 				TMario* mario = getMario(i);
 				mario->mWaterHealth = mario->mMaxWaterHealth;
 			}
@@ -1268,7 +1268,7 @@ namespace SMSCoop {
 	void TBossMantaManager_updateMantaEscape(void* bossMantaManager) {
 		
 		bool shouldEscape = true;
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			setActiveMario(i);
 			updateMantaEscape__17TBossMantaManagerFv(bossMantaManager);
 			mantaEscapesFrom[i] = *sMantaEscapeFromMario;
@@ -1287,7 +1287,7 @@ namespace SMSCoop {
 		if(performFlags & 0x1) {
 			int marioId = getClosestMarioId(&placement->mTranslation);
 			if(mantaEscapesFrom[marioId]){
-				for(int i = 0; i < getPlayerCount(); ++i) {
+				for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 					if(!mantaEscapesFrom[i]) marioId = i;
 				}
 			}

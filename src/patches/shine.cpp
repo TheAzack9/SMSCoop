@@ -41,7 +41,7 @@ namespace SMSCoop {
 	// Description: Manually check which player is closest to the shine and select that as the person who "collected" it
 	// We cannot just use the mario in param as that is the gp mario
 	void TMario_receiveMessage_TShine_touchPlayer_override(TMario* mario, THitActor* shine, u32 param_3) {
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			TMario* mario = getMario(i);
 			mario->dropObject();
 		}
@@ -69,10 +69,13 @@ namespace SMSCoop {
 
 		bool isAnyInDemo = false;
 
-		for(int i = 0; i < getPlayerCount(); ++i) {
-
-			if(getMario(i)->mState == TMario::STATE_SHINE_C) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
+			TMario* mario = getMario(i);
+			if(mario->mState == TMario::STATE_SHINE_C) {
 				isAnyMarioInShineAnimation = true;
+				mario->mController->mState |= 0x10;
+			} else {
+			mario->mController->mState &= ~0x10;
 			}
 
 			if(isShineCutscene) {
@@ -80,14 +83,15 @@ namespace SMSCoop {
 				if(camera->getRestDemoFrames() != 0) {
 					isAnyInDemo = true;
 				} else {
-					if(i != 0) {
-						TMario* mario = getMario(i);
-						if (SMS_isDivingMap__Fv() || (mario->mPrevState & 0x20D0) == 0x20D0)
-							mario->mState = mario->mPrevState;
-						else
-							mario->mState = static_cast<u32>(TMario::STATE_IDLE);
-						camera->endDemoCamera();
+					//if (SMS_isDivingMap__Fv() || (mario->mPrevState & 0x20D0) == 0x20D0)
+					//	mario->mState = mario->mPrevState;
+					//else
+					//	mario->mState = static_cast<u32>(TMario::STATE_IDLE);
+
+					if(mario->mState == TMario::STATE_SHINE_C) {
+						mario->mState = static_cast<u32>(TMario::STATE_IDLE);
 					}
+					camera->endDemoCamera();
 				}
 			}
 			

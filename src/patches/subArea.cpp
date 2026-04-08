@@ -48,7 +48,7 @@ namespace SMSCoop {
 		u8 currentMarioId = getActiveViewport();
 		TMario* currentMario = getMario(currentMarioId);
 		// Cannot warp while being held by a mario
-		for(int j = 0; j < getPlayerCount(); ++j) {
+		for(int j = 0; j < getLoadedPlayerCount(); ++j) {
 			if(currentMario->mHolder == getMario(j)) {
 				return; 
 			}
@@ -58,7 +58,7 @@ namespace SMSCoop {
 
 		watchToWarp__8TMapWarpFv(warp);
 		playerPreviousWarpId[currentMarioId] = warp->mPrevID;
-		for(int j = 0; j < getPlayerCount(); ++j) {
+		for(int j = 0; j < getLoadedPlayerCount(); ++j) {
 			if(getMario(currentMarioId)->mHeldObject == getMario(j)) {
 				playerPreviousWarpId[j] = warp->mPrevID;
 				awakenedObjects[j] = awakenedObjects[currentMarioId];
@@ -167,7 +167,7 @@ namespace SMSCoop {
 		}
 		//return true;
 		u32 result = 0;
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			TMario* mario = getMario(i);
 		
 			u32 cubeNo = cubeManagerArea->getInCubeNo((Vec&)mario->mTranslation);

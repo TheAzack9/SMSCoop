@@ -35,7 +35,7 @@ namespace SMSCoop {
 
 	void checkTalking(TMarDirector* marDirector) {
 		bool someoneTalking = false;
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			if(getMario(i)->mState == TMario::State::STATE_TALKING) {
 				someoneTalking = true;	
 			}
@@ -44,8 +44,8 @@ namespace SMSCoop {
 		if(!someoneTalking) {
 			marioIdTalking = -1;
 			//OSReport("Stopping talking due to no one talking\n");
-			for(int i = 0; i < getPlayerCount(); ++i) {
-				*((u32*)&marDirector->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
+				marDirector->mGamePads[i]->mState &= ~0x8; // Player is not talking
 			}
 		}
 
@@ -64,42 +64,47 @@ namespace SMSCoop {
 			}
 		}
 		
-		for(int i = 0; i < getPlayerCount(); ++i) {
-			if(isTalking()) {
-				if(i != marioIdTalking) {
-					*((u32*)&marDirector->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
-					*((u32*)&marDirector->mGamePads[i]->mState) &= ~0x40000; // Player cannot talk when another is talking
-				} else {
-					*((u32*)&marDirector->mGamePads[i]->mState) |= 0x80000; // Player is not talking can move
-				}
-			}
-		}
+		//for(int i = 0; i < getLoadedPlayerCount(); ++i) {
+		//	if(isTalking()) {
+		//		if(i != marioIdTalking) {
+		//			marDirector->mGamePads[i]->mState &= ~0x80000; // Player is not talking
+		//			marDirector->mGamePads[i]->mState &= ~0x40000; // Player cannot talk when another is talking
+		//		} else {
+		//			marDirector->mGamePads[i]->mState |= 0x80000; // Player is not talking can move
+		//		}
+		//	}
+		//}
 	}
 
 	//u32 soundId = 0x78ab;
 	//int cooldown = 0;
 	void updateTalking(TMarDirector *director) {
 		bool someoneTalking = false;
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			TMario* mario = getMario(i);
+
 			if(mario->mState == TMario::State::STATE_TALKING) {
 				someoneTalking = true;	
-				*((u32*)&director->mGamePads[i]->mState) |= 0x80000; // Player is talking
+				director->mGamePads[i]->mState |= 0x8; // Player is talking
+			}
+			else {
+				director->mGamePads[i]->mState &= ~0x8; // Player is not talking
 			}
 		}
 
-		if(someoneTalking) {
-			for(int i = 0; i < getPlayerCount(); ++i) {
-				TMario* mario = getMario(i);
-				// If not the one talking
-				if(mario->mState != TMario::State::STATE_TALKING) {
-					*((u32*)&director->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
-					*((u32*)&director->mGamePads[i]->mState) &= ~0x40000; // Player cannot talk when another is talking
-				}
-			}
-		}
+		//if(someoneTalking) {
 
-		playerIdPerFrame = (playerIdPerFrame+1) % getPlayerCount();
+		//	for(int i = 0; i < getLoadedPlayerCount(); ++i) {
+		//		TMario* mario = getMario(i);
+		//		// If not the one talking
+		//		if(mario->mState != TMario::State::STATE_TALKING) {
+		//			director->mGamePads[i]->mState &= ~0x80000; // Player is not talking
+		//			director->mGamePads[i]->mState &= ~0x40000; // Player cannot talk when another is talking
+		//		}
+		//	}
+		//}
+
+		playerIdPerFrame = (playerIdPerFrame+1) % getLoadedPlayerCount();
 
 		// Best way i've found to search sound ids 
 		//if(cooldown <= 0) {
@@ -126,21 +131,28 @@ namespace SMSCoop {
 		if(!someoneTalking && marioIdTalking != -1 && director->mTalkingNPC == nullptr) {
 			marioIdTalking = -1;
 			//OSReport("Stopping talking due to no one talking in update %X\n", (u32*)&handleTalking);
-			for(int i = 0; i < getPlayerCount(); ++i) {
-				*((u32*)&director->mGamePads[i]->mState) &= ~0x80000; // Player is not talking
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
+				*((u32*)&director->mGamePads[i]->mState) &= ~0x8; // Player is not talking
 			}
 		}
+		
+		u8 initiatingTalking = *(u8*)((u32)director + 0x126);
+		//OSReport("Hmm %d %d %X %d\n", someoneTalking, !isTalking(), director->mTalkingNPC, initiatingTalking);
 
 		// Failsafe in case missed talking flag, then start talking with someone instead of softlocking.
-		if(!isTalking() && director->mTalkingNPC != nullptr && director->mGameState == 1) {
-			//OSReport("Reverting to failsafe \n");
+		if(!isTalking() && director->mTalkingNPC != nullptr && initiatingTalking) {
+			OSReport("Reverting to failsafe \n");
 			handleTalking(director, director->mTalkingNPC, getClosestMarioId(&director->mTalkingNPC->mTranslation));
+		}
+
+		if(!isTalking()) {
+			director->mTalkingNPC = nullptr;
 		}
 	}
 	
 	void TMarDirector_movement_game_override(TMarDirector* marDirector) {
 
-		if(getPlayerCount() > 1) {
+		if(getLoadedPlayerCount() > 1) {
 			TMarioGamePad* p1Gamepad = marDirector->mGamePads[0];
 			u8 activeMario = getActiveViewport();
 			setActiveMario(activeMario);
@@ -151,7 +163,7 @@ namespace SMSCoop {
 			u32 frameMeaning = marDirector->mGamePads[0]->mFrameMeaning;
 			marDirector->mGamePads[0]->mFrameMeaning = marDirector->mGamePads[0]->mMeaning;
 			
-			*((u32*)&marDirector->mGamePads[0]->mState) &= ~0x100000; // Allow to move during cutscenes
+			//marDirector->mGamePads[0]->mState &= ~0x100000; // Allow to move during cutscenes
 
 			// Ensure that controller is in talking state
 			//if(activeMario == marioIdTalking) {
@@ -223,7 +235,7 @@ namespace SMSCoop {
 
 		ev__ForceStartTalkExceptNpc__FP32TSpcTypedInterp_1(interp, argc);
 		
-		handleTalking(director, target, talkingPlayer);
+		//handleTalking(director, target, talkingPlayer);
 		changePlayerStatusToTalking(getMario(talkingPlayer), 0x10001308,0,false);
 		setActiveMario(getActiveViewport());
 	}
@@ -240,7 +252,7 @@ namespace SMSCoop {
 		TMarDirector_movement_game_override(director);
 		
 		ev__ForceStartTalk__FP32TSpcTypedInterp_1(interp, argc);
-		handleTalking(director, target, talkingPlayer);
+		//handleTalking(director, target, talkingPlayer);
 		changePlayerStatusToTalking(getMario(talkingPlayer), 0x10001308,0,false);
 		setActiveMario(getActiveViewport());
 	}
@@ -455,7 +467,7 @@ namespace SMSCoop {
 		
 		clipActors__16TBoardNpcManagerFPQ26JDrama9TGraphics(npcManager, graphics);
 		int length = npcManager->length;
-		for(int j = 0; j < getPlayerCount(); ++j) {
+		for(int j = 0; j < getLoadedPlayerCount(); ++j) {
 			TMario* mario = getMario(j);
 			for(int i = 0; i < length; ++i) {
 				TBaseNPC* npc = npcManager->npcs[i];
@@ -477,7 +489,7 @@ namespace SMSCoop {
 	
 		clipEnemies__11TNPCManagerFPQ26JDrama9TGraphics(npcManager, graphics);
 		int length = npcManager->length;
-		for(int j = 0; j < getPlayerCount(); ++j) {
+		for(int j = 0; j < getLoadedPlayerCount(); ++j) {
 			TMario* mario = getMario(j);
 			for(int i = 0; i < length; ++i) {
 				TBaseNPC* npc = npcManager->npcs[i];

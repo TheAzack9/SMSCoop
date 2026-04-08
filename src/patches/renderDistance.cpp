@@ -19,7 +19,7 @@ namespace SMSCoop {
     //    }
     //    
     //    int theResult = 0;
-    //    for(int i = 0; i < getPlayerCount(); ++i) {
+    //    for(int i = 0; i < getLoadedPlayerCount(); ++i) {
     //        CPolarSubCamera* camera = getCameraById(i);
     //        PSMTXCopy(camera->mTRSMatrix, *(Mtx*)((u32)param_2 + 0xb4));
     //        SetViewFrustumClipCheckPerspective__Fffff(camera->mProjectionFovy, camera->mProjectionAspect, 10.0, 100000.0);

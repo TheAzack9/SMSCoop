@@ -36,6 +36,28 @@
 #include "yoshi.hxx"
 #include "settings.hxx"
 #include "players.hxx"
+#include "camera.hxx"
+#include "gui.hxx"
+
+//
+//void initStageLoading(TMarDirector *director) {
+//    BetterSMS::Loading::setLoading(true);
+//    
+//	if(gpApplication.mCurrentScene.mAreaID != 15) {
+//		gpApplication.mCurrentScene.mAreaID = 1;
+//		gpApplication.mCurrentScene.mEpisodeID = 1;
+//	
+//		gpApplication.mNextScene.mAreaID = 1;
+//		gpApplication.mNextScene.mEpisodeID = 1;
+//
+//		director->mAreaID = gpApplication.mCurrentScene.mAreaID;
+//		director->mEpisodeID = gpApplication.mCurrentScene.mEpisodeID;
+//
+//	}
+//    director->loadResource();
+//}
+//SMS_PATCH_BL(SMS_PORT_REGION(0x80296DE0, 0, 0, 0), initStageLoading);
+//
 
 const u8 gSaveBnr[] = {
 	0x09, 0x00, 0x00, 0x60, 0x00, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0x8E,
@@ -360,8 +382,8 @@ static void initModule() {
 
     //// Register callbacks
     
-    BetterSMS::Game::addBootCallback(setDebug); // TODO: Remove
-    BetterSMS::Stage::addInitCallback(SMSCoop::initCharacterArchives);
+    //BetterSMS::Game::addBootCallback(setDebug); // TODO: Remove
+    //BetterSMS::Stage::addInitCallback(SMSCoop::initCharacterArchives);
     BetterSMS::Stage::addInitCallback(SMSCoop::resetTalking);
     BetterSMS::Stage::addInitCallback(SMSCoop::resetSplitScreen);
     BetterSMS::Stage::addInitCallback(SMSCoop::resetAi);
@@ -385,6 +407,15 @@ KURIBO_MODULE_BEGIN("SMS Coop", "theAzack9", "v1.0") {
     // Set the load and unload callbacks to our registration functions
     KURIBO_EXECUTE_ON_LOAD { 
         initModule(); 
+
+        KURIBO_EXPORT_AS(SMSCoop::startDemoCameraCoOp, "startDemoCameraCoOp__7SMSCoopFPCcPCQ29JGeometry8TVec3<f>lfb");
+        KURIBO_EXPORT_AS(SMSCoop::getPlayerCount, "getPlayerCount__7SMSCoopFv");
+        KURIBO_EXPORT_AS(SMSCoop::getLoadedPlayerCount, "getLoadedPlayerCount__7SMSCoopFv");
+        KURIBO_EXPORT_AS(SMSCoop::getPlayerId, "getPlayerId__7SMSCoopFP6TMario");
+        KURIBO_EXPORT_AS(SMSCoop::getClosestMarioId, "getClosestMarioId__7SMSCoopFPQ29JGeometry8TVec3<f>");
+        KURIBO_EXPORT_AS(SMSCoop::getMario, "getMario__7SMSCoopFi");
+        KURIBO_EXPORT_AS(SMSCoop::getCameraById, "getCameraById__7SMSCoopFi");
+        KURIBO_EXPORT_AS(SMSCoop::getConsoleForPlayer, "getConsoleForPlayer__7SMSCoopFi");
     }
     KURIBO_EXECUTE_ON_UNLOAD { deinitModule(); }
 }

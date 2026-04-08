@@ -92,7 +92,7 @@ namespace SMSCoop {
 		// Run replaced branch
 		checkActorsHit__12TObjHitCheckFv(hitcheckobj);
 
-		for (int i = 0; i < getPlayerCount(); i++){
+		for (int i = 0; i < getLoadedPlayerCount(); i++){
 			// Check if mario should be bounced
 			TMario* mario = getMario(i);
 			for (int j = 0; j < mario->mNumObjs; j++){
@@ -121,7 +121,7 @@ namespace SMSCoop {
 
 		// Description: Collision check run for TMario
 	void TOBjHitCheck_suffererIsInAttackArea(void* tObjHitCheck, THitActor* hitActor, THitActor* mario){
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			TMario* zMario = getMario(i);
 			if(checkDistance__FRCQ29JGeometry8TVec3_f(hitActor->mAttackRadius, hitActor->mAttackHeight, zMario->mReceiveRadius, zMario->mReceiveHeight, hitActor->mTranslation, zMario->mTranslation)) {
 				suffererIsInAttackArea__12TObjHitCheckFP9THitActorP9THitActor(tObjHitCheck, hitActor, zMario);
@@ -134,7 +134,7 @@ namespace SMSCoop {
 	// This fixes collision with e.g shines and allows luigi to collide with them
 	int CheckDistance_Override(double param_1, double param_2, double param_3, double param_4, TVec3f* positionObj, TVec3f* positionPlayer) {
 		int result = 0;
-		for (int i = 0; i < getPlayerCount(); i++){
+		for (int i = 0; i < getLoadedPlayerCount(); i++){
 			TMario* mario = getMario(i);
 
 			result = checkDistance__FRCQ29JGeometry8TVec3_f(param_1, param_2, param_3, param_4, positionObj, &mario->mTranslation);

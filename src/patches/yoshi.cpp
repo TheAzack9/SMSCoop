@@ -30,7 +30,7 @@ namespace SMSCoop {
 	}
 	
 	void TYoshi_appearFromEgg_override(TYoshi* yoshi, TVec3f* pos, float param_2, void* egg) {
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			appearFromEgg__6TYoshiFRCQ29JGeometry8TVec3_f(getMario(i)->mYoshi, pos, param_2, egg);
 			pos->x += 120.0f;
 		}

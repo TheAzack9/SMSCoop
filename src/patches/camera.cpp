@@ -18,6 +18,8 @@
 #include "players.hxx"
 #include "splitscreen.hxx"
 #include "settings.hxx"
+#include "shine.hxx"
+#include "camera.hxx"
 
 #define MARIO_COUNT 2
 extern SMSCoop::CameraTypeSetting gCameraTypeSetting;
@@ -47,8 +49,8 @@ namespace SMSCoop {
 	}
 
 	CPolarSubCamera* getCameraById(int i) {
-		return cameras[i];
-	}
+		return cameras[i]; }
+
 
 	inline void SDAstoreword(int offset, u32 val) {
 		__asm("stw %0, %1(13)" :: "r" (val), "X" (offset));
@@ -64,7 +66,7 @@ namespace SMSCoop {
 	// TODO: Cleanup
 	void loadCameraInfo(u32* camera, u32* unk, u32* bleh1, u32* bleh2, u32** gadgetNode) {
 		u32* susNode = gadgetNode[0];
-		for (int i = 1; i < getPlayerCount(); i++) {
+		for (int i = 1; i < getLoadedPlayerCount(); i++) {
 			u32* newNode = (u32*)__nw__FUl(12);
 			newNode[2] = (u32)cameras[i];
 			newNode[1] = (u32)gadgetNode;
@@ -75,7 +77,7 @@ namespace SMSCoop {
 		}
 
 		int a = unk[1], b = unk[3], c = unk[4];
-		for (int i = 0; i < getPlayerCount(); i++) {
+		for (int i = 0; i < getLoadedPlayerCount(); i++) {
 			unk[1] = a;
 			unk[3] = b;
 			unk[4] = c;
@@ -112,7 +114,7 @@ namespace SMSCoop {
 			return;
 		}
 
-		for (int i = getPlayerCount()-1; i >= 0; i--) {
+		for (int i = getLoadedPlayerCount()-1; i >= 0; i--) {
 			if(i == getActiveViewport()) continue;
 			CPolarSubCamera* pCamera = cameras[i];
 			setActiveMario(i);
@@ -132,7 +134,7 @@ namespace SMSCoop {
 
 		// Custom controls for the retro camera
 		if(isSingleCameraLevel() && !isFocusedCamera()) {
-			for(int i = 0; i < getPlayerCount(); ++i) {
+			for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 
 				MultiplayerCameraPhi += gpApplication.mGamePads[i]->mCStick.mStickX * 40.0;
 				MultiplayerCameraRho += gpApplication.mGamePads[i]->mCStick.mStickY * 2.0;
@@ -165,7 +167,7 @@ namespace SMSCoop {
 	// Description: Runs loadAfter for all cameras
 	// TODO: Cleanup
 	void loadAfterCameraOverhaul(CPolarSubCamera* camera) {
-		for (int i = 0; i < getPlayerCount(); i++) {
+		for (int i = 0; i < getLoadedPlayerCount(); i++) {
 			*gpCameraMario = c1[i];
 			*gpCameraShake = (CPolarSubCamera*)c2[i];
 			loadAfter__15CPolarSubCameraFv(cameras[i]);
@@ -176,7 +178,7 @@ namespace SMSCoop {
 	
 		CPolarSubCamera* originalCam = cameras[0];
 		f32 originalAspect = originalCam->mProjectionAspect;
-		for (int i = 0; i < getPlayerCount(); i++) {
+		for (int i = 0; i < getLoadedPlayerCount(); i++) {
 			cameras[i]->mProjectionAspect = originalAspect;
 			//cameras[i]->mProjectionFovy *= 1.8f;
 			if(!isSingleCameraLevel() && gCameraTypeSetting.getInt() == CameraTypeSetting::HORIZONTAL) {
@@ -205,7 +207,7 @@ namespace SMSCoop {
 		u32* bob = (u32*)(0x804141c0 - 0x7110);
 		c1[0] = *gpCameraMario;
 		c2[0] = (u32)bob[2];
-		for (int i = 1; i < getPlayerCount(); i++) {
+		for (int i = 1; i < getLoadedPlayerCount(); i++) {
 			// memory leak?
 			cameras[i] = (CPolarSubCamera*)__nw__FUl(1020);
 			__ct__15CPolarSubCameraFPCc(cameras[i], unk);
@@ -223,7 +225,7 @@ namespace SMSCoop {
 	// TODO: Look more into what this exactly does, seems to be related too gooper blooper fight
 	// TODO: Cleanup
 	void setNoticeInfoCameras(CPolarSubCamera* camera) {
-		for (int i = 0; i < getPlayerCount(); i++) {
+		for (int i = 0; i < getLoadedPlayerCount(); i++) {
 			*gpCameraMario = c1[i];
 			SDAstoreword(-0x7108, c2[i]);
 			cameras[i]->setNoticeInfo();
@@ -245,26 +247,32 @@ namespace SMSCoop {
 
 	// Description: When demo starts/ends, start/end for all cameras.
 	// TODO: Make it based on individual controllers input press
-	void CPolarSubCamera_StartDemoCamera_Override(CPolarSubCamera* p1Camera, char* filename, TVec3f* position, s32 param_3, f32 param_4, bool param_5) {
+	void CPolarSubCamera_StartDemoCamera_Override(CPolarSubCamera* p1Camera, const char* filename, const TVec3f* position, s32 param_3, f32 param_4, bool param_5) {
 
+		OSReport("String %s\n", filename);
 		bool isShineDemoCamera = strcmp(filename, *cameraInside) == 0 || strcmp(filename, *cameraOutside) == 0;
-		//if(isShineDemoCamera) {
-		//	setShineCutscene(true);
-		//}
+		if(isShineDemoCamera) {
+			setShineCutscene(true);
+		}
 		
-		for (int i = 0; i < getPlayerCount(); i++) {
+		for (int i = 0; i < getLoadedPlayerCount(); i++) {
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
-			//if(!isShineDemoCamera || (isShineGot() && getMarioThatPickedShine() == i)) {
+			if(!isShineDemoCamera || (isShineGot() && getMarioThatPickedShine() == i)) {
 				camera->startDemoCamera(filename, position, param_3, param_4, param_5);
-			//}
+			}
 		}
 	}
 	SMS_PATCH_BL(SMS_PORT_REGION(0x80297f7c, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x802981a8, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
 	SMS_PATCH_BL(SMS_PORT_REGION(0x8029839c, 0, 0, 0), CPolarSubCamera_StartDemoCamera_Override);
+	
+    void startDemoCameraCoOp(const char *camera_name, const TVec3f *unk1, s32 unk2, f32 unk3,
+                             bool unk4) {
+		CPolarSubCamera_StartDemoCamera_Override(gpCamera, camera_name, unk1, unk2, unk3, unk4);
+	}
 
 	void CPolarSubCamera_EndDemoCamera_Override(CPolarSubCamera* camera) {
-		for (int i = 0; i < getPlayerCount(); i++) {
+		for (int i = 0; i < getLoadedPlayerCount(); i++) {
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
 			camera->endDemoCamera();
 		}
@@ -275,7 +283,7 @@ namespace SMSCoop {
 
 	// Description: Sets up each camera as it's own sound listener. 
 	void MSoundSESystem_MSoundSE_checkSoundArea(JAIBasic* jaiBasic, TVec3f* param_1, TVec3f* param_2, float* param_3, u32 sourceIdx) {
-		for (int i = 0; i < getPlayerCount(); i++) {
+		for (int i = 0; i < getLoadedPlayerCount(); i++) {
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
 			setCameraInfo__8JAIBasicFP3VecP3VecPA4_fUl(jaiBasic, camera + 0x124, camera + 0x13c, camera->mTRSMatrix, i);
 		}
@@ -291,7 +299,7 @@ namespace SMSCoop {
 		PSMTXMultVec(matrix, source, &distance);
 		fdist = PSVECMag(&distance);
 
-		for(int i = 1; i < getPlayerCount(); ++i) {
+		for(int i = 1; i < getLoadedPlayerCount(); ++i) {
 			Vec newDist;
 			CPolarSubCamera* camera = (CPolarSubCamera*)cameras[i];
 			PSMTXMultVec(camera->mTRSMatrix, source, &newDist);
@@ -312,7 +320,7 @@ namespace SMSCoop {
 	int SMS_GetMonteVillageAreaInMario_camera() {
 		int result = 3;
 		return result; // This probably messes up music or something in pianta, but it seems to fix sounds
-		//for(int i = getPlayerCount() - 1; i >= 0; --i) {
+		//for(int i = getLoadedPlayerCount() - 1; i >= 0; --i) {
 		//	TMario* mario = getMario(i);
 		//	gpCubeFastC->mCurrentCube = gpCubeFastC->getInCubeNo((const Vec&)mario->mTranslation);
 		//	setCamera(i);

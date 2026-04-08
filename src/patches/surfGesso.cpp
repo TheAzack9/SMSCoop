@@ -22,7 +22,7 @@ namespace SMSCoop {
 	MActor* gesso2[MARIO_COUNT];
 
 	void updateSurfGesso(TMarDirector *director) {
-		for(int i = 0; i < getPlayerCount(); ++i) {
+		for(int i = 0; i < getLoadedPlayerCount(); ++i) {
 			if(gessoTimer[i] > 0) {
 				gessoTimer[i]--;
 			}
